@@ -1,4 +1,4 @@
-package io.github.youseonghyeon.config.datasource;
+package io.github.youseonghyeon.session;
 
 import java.net.Socket;
 import java.util.HashMap;
@@ -6,24 +6,21 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-public class MemoryChattingDataSource implements ChattingDataSource {
+public class InMemorySessionStore {
 
     private final Map<Long, Set<Socket>> roomSockets = new HashMap<>();
     // 역색인이 필요한경우 사용
     private final Map<Socket, Set<Long>> invertedIndex = new HashMap<>();
 
-    @Override
-    public Set<Socket> registerSocketToRoom(Socket socket, Long roomId) {
+    public void registerSocketToRoom(Socket socket, Long roomId) {
         this.addToRoom(socket, roomId);
-        return roomSockets.get(roomId);
+        roomSockets.get(roomId);
     }
 
-    @Override
     public void removeSocketFromRoom(Socket socket, Long roomId) {
         this.removeFromRoom(socket, roomId);
     }
 
-    @Override
     public Set<Socket> findRoomBy(Long roomId) {
         return roomSockets.getOrDefault(roomId, Set.of());
     }

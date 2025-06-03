@@ -1,15 +1,10 @@
-package io.github.youseonghyeon.config;
-
-import io.github.youseonghyeon.SendFilterPolicy;
-import io.github.youseonghyeon.config.datasource.ChattingDataSource;
+package io.github.youseonghyeon.engine.config;
 
 import java.net.Socket;
-import java.util.concurrent.ThreadPoolExecutor;
 
 public class ChattingEngineConfig {
 
     private RoomSelector<?> roomSelector;
-    private ChattingDataSource chattingDataSource;
     private Integer coreThreadPoolSize;
     private Integer maxThreadPoolSize;
     private SendFilterPolicy sendFilterPolicy;
@@ -32,15 +27,6 @@ public class ChattingEngineConfig {
         return sendFilters;
     }
 
-    public ChattingEngineConfig datasource(ChattingDataSource chattingDataSource) {
-        this.chattingDataSource = chattingDataSource;
-        return this;
-    }
-
-    public ChattingEngineConfig threadPoolExecutor(ThreadPoolExecutor executor) {
-        return this;
-    }
-
     public ChattingEngineConfig threadPoolSize(int coreThreadPoolSize, int maxThreadPoolSize) {
         this.coreThreadPoolSize = coreThreadPoolSize;
         this.maxThreadPoolSize = maxThreadPoolSize;
@@ -50,10 +36,6 @@ public class ChattingEngineConfig {
     @SuppressWarnings("unchecked")
     public <T> RoomSelector<T> getRoomSelector() {
         return (RoomSelector<T>) roomSelector;
-    }
-
-    public ChattingDataSource getChattingDataSource() {
-        return chattingDataSource;
     }
 
     public Integer getCoreThreadPoolSize() {
@@ -67,17 +49,6 @@ public class ChattingEngineConfig {
     public SendFilterPolicy getSendFilterPolicy() {
         return sendFilterPolicy;
     }
-
-    @Override
-    public String toString() {
-        return "ChattingEngineConfig{" +
-               "roomSelector=" + roomSelector +
-               ", chattingDataSource=" + chattingDataSource +
-               ", coreThreadPoolSize=" + coreThreadPoolSize +
-               ", maxThreadPoolSize=" + maxThreadPoolSize +
-               '}';
-    }
-
 
     public static class BroadcastExceptSelf implements SendFilterPolicy {
         @Override

@@ -1,4 +1,4 @@
-package io.github.youseonghyeon.config;
+package io.github.youseonghyeon.engine.config;
 
 import java.net.Socket;
 

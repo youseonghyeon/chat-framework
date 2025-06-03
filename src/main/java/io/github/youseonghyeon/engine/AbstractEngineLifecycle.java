@@ -1,4 +1,4 @@
-package io.github.youseonghyeon;
+package io.github.youseonghyeon.engine;
 
 abstract class AbstractEngineLifecycle {
 
@@ -25,7 +25,6 @@ abstract class AbstractEngineLifecycle {
     protected abstract void initResource();
     protected abstract void initThreadPool();
     protected abstract void initRoomSelectorIfAbsent();
-
     protected abstract void stopThreadPool();
 
     protected int reasonableQueueSize(int maxThreadPoolSize) {
