@@ -3,7 +3,7 @@ package io.github.youseonghyeon;
 import java.io.OutputStream;
 
 @FunctionalInterface
-public interface SendMessage {
+public interface SendParser<T> {
 
-    void send(OutputStream outputStream);
+    void write(T message, OutputStream outputStream);
 }

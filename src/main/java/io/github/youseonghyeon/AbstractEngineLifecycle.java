@@ -8,9 +8,9 @@ abstract class AbstractEngineLifecycle {
         if (started) {
             throw new IllegalStateException("Engine is already started.");
         }
-        initServerSocket();
         initThreadPool();
         initResource();
+        initRoomSelectorIfAbsent();
         started = true;
     }
 
@@ -18,16 +18,14 @@ abstract class AbstractEngineLifecycle {
         if (!started) {
             throw new IllegalStateException("Engine is not started yet.");
         }
-        closeServerSocket();
         stopThreadPool();
         started = false;
     }
 
-    protected abstract void initServerSocket();
     protected abstract void initResource();
     protected abstract void initThreadPool();
+    protected abstract void initRoomSelectorIfAbsent();
 
-    protected abstract void closeServerSocket();
     protected abstract void stopThreadPool();
 
     protected int reasonableQueueSize(int maxThreadPoolSize) {

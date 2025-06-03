@@ -1,7 +1,9 @@
 package io.github.youseonghyeon.config;
 
-@FunctionalInterface
-public interface RoomSelector {
+import java.net.Socket;
 
-    Long selectRoom();
+@FunctionalInterface
+public interface RoomSelector<T> {
+
+    long selectRoom(Socket socket, T context);
 }
