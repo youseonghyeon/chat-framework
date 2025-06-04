@@ -3,11 +3,9 @@ package io.github.youseonghyeon.engine;
 import io.github.youseonghyeon.broadcast.MessageBroadcaster;
 import io.github.youseonghyeon.engine.config.MessageWriter;
 import io.github.youseonghyeon.engine.config.SendFilterPolicy;
-import io.github.youseonghyeon.session.InMemorySessionStore;
+import io.github.youseonghyeon.session.SessionStore;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
 
-import java.io.OutputStream;
 import java.net.Socket;
 import java.util.Set;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -18,7 +16,7 @@ class ChatManagerTest {
 
     @Test
     void testSend_BroadcastCalled() {
-        InMemorySessionStore sessionStore = mock(InMemorySessionStore.class);
+        SessionStore sessionStore = mock(SessionStore.class);
         ThreadPoolExecutor executor = mock(ThreadPoolExecutor.class);
         SendFilterPolicy filterPolicy = mock(SendFilterPolicy.class);
         MessageBroadcaster broadcaster = mock(MessageBroadcaster.class);

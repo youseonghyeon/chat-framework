@@ -43,7 +43,7 @@ abstract class AbstractEngineLifecycle {
     }
 
     /**
-     * 엔진을 종료합니다. 내부적으로 스레드 풀을 정리하며,
+     * 엔진을 종료합니다. 내부적으로 스레드 풀을 정리하며, 모든 세션을 종료합니다.
      * 시작되지 않은 상태에서의 종료를 방지합니다.
      *
      * @throws IllegalStateException 아직 시작되지 않았거나 락 획득에 실패한 경우
@@ -54,6 +54,7 @@ abstract class AbstractEngineLifecycle {
                 throw new IllegalStateException("Engine is not started yet.");
             }
             stopThreadPool();
+            destroyAllSessions();
             started = false;
         });
     }
@@ -102,6 +103,12 @@ abstract class AbstractEngineLifecycle {
      * 스레드 풀 종료를 위한 메서드입니다.
      */
     protected abstract void stopThreadPool();
+
+    /**
+     * 모든 세션을 종료하는 메서드입니다.
+     * 예: 서버 소켓을 닫거나, 세션 저장소의 모든 소켓을 종료합니다.
+     */
+    protected abstract void destroyAllSessions();
 
     /**
      * 최대 쓰레드 수를 기반으로 적절한 큐 크기를 반환합니다.

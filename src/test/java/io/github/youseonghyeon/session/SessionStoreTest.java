@@ -7,7 +7,7 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-class InMemorySessionStoreTest {
+class SessionStoreTest {
 
     /**
      * Tests for registerSocketToRoom method in the InMemorySessionStore class.
@@ -19,7 +19,7 @@ class InMemorySessionStoreTest {
     @Test
     void testRegisterSocketToEmptyRoom() {
         // Arrange
-        InMemorySessionStore store = new InMemorySessionStore();
+        SessionStore store = new SessionStore();
         Socket socket = new Socket();
         Long roomId = 1L;
 
@@ -35,7 +35,7 @@ class InMemorySessionStoreTest {
     @Test
     void testRegisterSocketToNullRoom() {
         // Arrange
-        InMemorySessionStore store = new InMemorySessionStore();
+        SessionStore store = new SessionStore();
         Socket socket = new Socket();
         Long roomId = null;
 
@@ -46,7 +46,7 @@ class InMemorySessionStoreTest {
     @Test
     void testRegisterSocketToRoomConcurrentAccess() {
         // Arrange
-        InMemorySessionStore store = new InMemorySessionStore();
+        SessionStore store = new SessionStore();
         Socket socket1 = new Socket();
         Socket socket2 = new Socket();
         Long roomId = 7L;
@@ -75,7 +75,7 @@ class InMemorySessionStoreTest {
     @Test
     void testRegisterSameSocketToDifferentRoomsInReverseLookup() {
         // Arrange
-        InMemorySessionStore store = new InMemorySessionStore().enableReverseLookup();
+        SessionStore store = new SessionStore().enableReverseLookup();
         Socket socket = new Socket();
         Long roomId1 = 8L;
         Long roomId2 = 9L;
@@ -97,7 +97,7 @@ class InMemorySessionStoreTest {
     @Test
     void testRegisterSocketToNonEmptyRoom() {
         // Arrange
-        InMemorySessionStore store = new InMemorySessionStore();
+        SessionStore store = new SessionStore();
         Socket socket1 = new Socket();
         Socket socket2 = new Socket();
         Long roomId = 2L;
@@ -118,7 +118,7 @@ class InMemorySessionStoreTest {
     @Test
     void testRegisterSameSocketToRoomIdempotency() {
         // Arrange
-        InMemorySessionStore store = new InMemorySessionStore();
+        SessionStore store = new SessionStore();
         Socket socket = new Socket();
         Long roomId = 3L;
 
@@ -137,7 +137,7 @@ class InMemorySessionStoreTest {
     @Test
     void testRegisterSocketToMultipleRooms() {
         // Arrange
-        InMemorySessionStore store = new InMemorySessionStore();
+        SessionStore store = new SessionStore();
         Socket socket = new Socket();
         Long roomId1 = 4L;
         Long roomId2 = 5L;

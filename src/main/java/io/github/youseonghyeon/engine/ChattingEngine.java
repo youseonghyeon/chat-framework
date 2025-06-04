@@ -6,8 +6,9 @@ import io.github.youseonghyeon.engine.config.ChattingEngineConfig;
 import io.github.youseonghyeon.engine.config.PublicSquareRoomSelector;
 import io.github.youseonghyeon.engine.config.RoomSelector;
 import io.github.youseonghyeon.engine.config.SendFilterPolicy;
-import io.github.youseonghyeon.session.InMemorySessionStore;
+import io.github.youseonghyeon.session.SessionStore;
 
+import java.io.IOException;
 import java.net.Socket;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.RejectedExecutionHandler;
@@ -52,7 +53,7 @@ import java.util.function.Function;
 public class ChattingEngine extends AbstractEngineLifecycle {
 
     private ChattingEngineConfig engineConfig;
-    private InMemorySessionStore dataSource;
+    private SessionStore sessionStore;
     private ThreadPoolExecutor engineExecutor;
     private ChatManager chatManager;
 
@@ -112,9 +113,9 @@ public class ChattingEngine extends AbstractEngineLifecycle {
         if (engineConfig.getSendFilterPolicy() == null)
             engineConfig.sendFilterPolicy(new ChattingEngineConfig.BroadcastExceptSelf());
         if (engineConfig.getBroadcaster() == null) engineConfig.messageBroadcaster(new NoOpBroadcaster());
-        dataSource = engineConfig.isUseInvertedIndexSessionStore()
-                ? new InMemorySessionStore().enableReverseLookup()
-                : new InMemorySessionStore();
+        sessionStore = engineConfig.isUseInvertedIndexSessionStore()
+                ? new SessionStore().enableReverseLookup()
+                : new SessionStore();
     }
 
     /**
@@ -129,7 +130,7 @@ public class ChattingEngine extends AbstractEngineLifecycle {
     protected void initResource() {
         SendFilterPolicy sendFilterPolicy = engineConfig.getSendFilterPolicy();
         MessageBroadcaster broadcaster = engineConfig.getBroadcaster();
-        this.chatManager = new ChatManager(dataSource, engineExecutor, sendFilterPolicy, broadcaster);
+        this.chatManager = new ChatManager(sessionStore, engineExecutor, sendFilterPolicy, broadcaster);
     }
 
     /**
@@ -150,6 +151,19 @@ public class ChattingEngine extends AbstractEngineLifecycle {
         }
     }
 
+    @Override
+    protected void destroyAllSessions() {
+        sessionStore.getAllSessions().forEach(socket -> {
+            try {
+                if (socket == null || !socket.isConnected()) return;
+                socket.close();
+            } catch (IOException e) {
+                // TODO 세션 종료 실패에 대한 정책 수립 필요
+                e.printStackTrace();
+            }
+        });
+    }
+
     /**
      * 특정 소켓과 context 정보를 바탕으로 룸에 참여시킵니다.
      *
@@ -161,7 +175,7 @@ public class ChattingEngine extends AbstractEngineLifecycle {
     public <T> long participate(Socket socket, T context) {
         RoomSelector<T> roomSelector = engineConfig.getRoomSelector();
         long roomId = roomSelector.selectRoom(socket, context);
-        dataSource.registerSocketToRoom(socket, roomId);
+        sessionStore.registerSocketToRoom(socket, roomId);
         return roomId;
     }
 
@@ -175,6 +189,6 @@ public class ChattingEngine extends AbstractEngineLifecycle {
     public <T> void leave(Socket socket, T context) {
         RoomSelector<T> roomSelector = engineConfig.getRoomSelector();
         long roomId = roomSelector.selectRoom(socket, context);
-        dataSource.removeSocketFromRoom(socket, roomId);
+        sessionStore.removeSocketFromRoom(socket, roomId);
     }
 }

@@ -1,11 +1,10 @@
 package io.github.youseonghyeon.engine;
 
 import io.github.youseonghyeon.broadcast.MessageBroadcaster;
-import io.github.youseonghyeon.engine.config.ChattingEngineConfig;
 import io.github.youseonghyeon.engine.config.SendFilterPolicy;
 import io.github.youseonghyeon.engine.config.MessageWriter;
 import io.github.youseonghyeon.engine.exception.NoParticipantException;
-import io.github.youseonghyeon.session.InMemorySessionStore;
+import io.github.youseonghyeon.session.SessionStore;
 
 import java.io.OutputStream;
 import java.net.Socket;
@@ -16,7 +15,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 /**
  * 채팅 메시지 전송을 담당하는 클래스입니다.
  *
- * <p>{@link InMemorySessionStore}를 기반으로 룸에 속한 클라이언트 소켓을 조회하고,
+ * <p>{@link SessionStore}를 기반으로 룸에 속한 클라이언트 소켓을 조회하고,
  * {@link SendFilterPolicy}로 수신 대상을 필터링한 뒤,
  * {@link MessageWriter}를 이용해 메시지를 직렬화 및 전송합니다.</p>
  *
@@ -39,7 +38,7 @@ import java.util.concurrent.ThreadPoolExecutor;
  */
 public class ChatManager {
 
-    private final InMemorySessionStore inMemorySessionStore;
+    private final SessionStore sessionStore;
     private final ThreadPoolExecutor executor;
     private final SendFilterPolicy filterPolicy;
     private final MessageBroadcaster broadcaster;
@@ -47,16 +46,16 @@ public class ChatManager {
     /**
      * ChatManager 인스턴스를 생성합니다.
      *
-     * @param inMemorySessionStore 룸-소켓 매핑을 담당하는 인메모리 세션 저장소
+     * @param sessionStore 룸-소켓 매핑을 담당하는 인메모리 세션 저장소
      * @param executor 메시지 전송을 처리할 비동기 스레드 풀
      * @param filterPolicy 메시지 송신 여부를 판단하는 필터 정책
      * @param broadcaster 메시지 후속 브로드캐스트 처리기 (예: 로그, 이벤트 발행 등)
      */
-    public ChatManager(InMemorySessionStore inMemorySessionStore,
+    public ChatManager(SessionStore sessionStore,
                        ThreadPoolExecutor executor,
                        SendFilterPolicy filterPolicy,
                        MessageBroadcaster broadcaster) {
-        this.inMemorySessionStore = inMemorySessionStore;
+        this.sessionStore = sessionStore;
         this.executor = executor;
         this.filterPolicy = filterPolicy;
         this.broadcaster = broadcaster;
@@ -97,7 +96,7 @@ public class ChatManager {
      * @return 송신 대상 소켓 목록
      */
     private List<Socket> extractTargetSockets(Socket self, Long roomId) {
-        Set<Socket> sockets = inMemorySessionStore.findRoomBy(roomId);
+        Set<Socket> sockets = sessionStore.findRoomBy(roomId);
         return sockets.stream()
                 .filter(socket -> filterPolicy.shouldSend(socket, self))
                 .toList();
