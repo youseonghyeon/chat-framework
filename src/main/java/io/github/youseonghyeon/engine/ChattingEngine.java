@@ -1,12 +1,16 @@
 package io.github.youseonghyeon.engine;
 
+import io.github.youseonghyeon.broadcast.MessageBroadcaster;
+import io.github.youseonghyeon.broadcast.impl.NoOpBroadcaster;
 import io.github.youseonghyeon.engine.config.ChattingEngineConfig;
 import io.github.youseonghyeon.engine.config.PublicSquareRoomSelector;
 import io.github.youseonghyeon.engine.config.RoomSelector;
+import io.github.youseonghyeon.engine.config.SendFilterPolicy;
 import io.github.youseonghyeon.session.InMemorySessionStore;
 
 import java.net.Socket;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.RejectedExecutionHandler;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
@@ -31,7 +35,7 @@ import java.util.function.Function;
  *   <li>ChatManager: 메시지 브로드캐스트 처리</li>
  * </ul>
  * </p>
- *
+ * <p>
  * 사용 예:
  * <pre>{@code
  * ChattingEngine engine = new ChattingEngine();
@@ -43,6 +47,7 @@ import java.util.function.Function;
  * }</pre>
  *
  * @author 유성현
+ * @version preview-1.0.0
  */
 public class ChattingEngine extends AbstractEngineLifecycle {
 
@@ -51,48 +56,93 @@ public class ChattingEngine extends AbstractEngineLifecycle {
     private ThreadPoolExecutor engineExecutor;
     private ChatManager chatManager;
 
+    /**
+     * 사용자로부터 전달된 설정 체인을 통해 {@link ChattingEngineConfig}를 구성합니다.
+     * 이 메서드는 엔진을 시작하기 전에 반드시 호출되어야 합니다.
+     *
+     * @param configChain 설정을 구성하는 람다 함수 또는 메서드 참조
+     *                    {@code config -> config.roomSelector(...).threadPoolSize(...)} 와 같이 사용됩니다.
+     */
     public void setConfig(Function<ChattingEngineConfig, ChattingEngineConfig> configChain) {
         this.engineConfig = configChain.apply(new ChattingEngineConfig());
     }
 
+    /**
+     * 내부적으로 초기화된 {@link ChatManager}를 반환합니다.
+     * 메시지 송신 등과 관련된 작업은 이 객체를 통해 처리됩니다.
+     *
+     * @return 초기화된 ChatManager 인스턴스
+     */
     public ChatManager chatManager() {
         return chatManager;
     }
 
+    /**
+     * {@link ThreadPoolExecutor}를 초기화합니다.
+     * core/max/thread queue 크기는 설정값이 없을 경우 기본값으로 대체됩니다.
+     * CallerRunsPolicy를 통해 백프레셔 정책을 우선 적용합니다.
+     */
     @Override
     protected void initThreadPool() {
-        int coreSize = withDefault(engineConfig.getCoreThreadPoolSize(), 30);
-        int maxSize = withDefault(engineConfig.getMaxThreadPoolSize(), 100);
-        int queueSize = reasonableQueueSize(maxSize);
-        // TODO 백프레셔를 우선 적용하고 추후 CustomExecuteExceptionHandler 적용 가능하도록 수정 필요
-        engineExecutor = new ThreadPoolExecutor(coreSize, maxSize, 60, TimeUnit.SECONDS, new LinkedBlockingQueue<>(queueSize), new ThreadPoolExecutor.CallerRunsPolicy());
+        final int coreSize = withDefault(engineConfig.getCoreThreadPoolSize(), 30);
+        final int maxSize = withDefault(engineConfig.getMaxThreadPoolSize(), 100);
+        final int queueSize = reasonableQueueSize(maxSize);
+        // TODO 백프레셔 선 적용하고 추후 사용자에게 수정 기능을 제공해야 할지 검토 필요
+        final RejectedExecutionHandler rejectedHandler = withDefault(engineConfig.getRejectedExecutionHandler(), new ThreadPoolExecutor.CallerRunsPolicy());
+        engineExecutor = new ThreadPoolExecutor(coreSize, maxSize, 60, TimeUnit.SECONDS, new LinkedBlockingQueue<>(queueSize), rejectedHandler);
         engineExecutor.prestartAllCoreThreads();
-        System.out.println("ThreadPoolExecutor initialized with core size: " + coreSize + ", max size: " + maxSize + ", queue size: " + queueSize);
+        System.out.println("Chatting Engine Thread initialized with core size: " + coreSize + ", max size: " + maxSize + ", queue size: " + queueSize);
     }
 
+    /**
+     * 설정값이 지정되지 않은 경우, 기본값을 자동으로 설정합니다.
+     * <p>
+     * 예를 들어, RoomSelector, SendFilterPolicy, Broadcaster가 null일 경우,
+     * 각각 기본 구현체를 주입합니다.
+     * </p>
+     * <ul>
+     *     <li>{@link PublicSquareRoomSelector}: 기본 룸 선택자</li>
+     *     <li>{@link ChattingEngineConfig.BroadcastExceptSelf}: 기본 송신 필터</li>
+     *     <li>{@link NoOpBroadcaster}: 브로드캐스트 미처리 기본 동작</li>
+     * </ul>
+     */
     @Override
-    protected void initRoomSelectorIfAbsent() {
-        if (engineConfig.getRoomSelector() == null) {
-            engineConfig.roomSelector(new PublicSquareRoomSelector<>());
-        }
+    protected void initDefaultConfigIfAbsent() {
+        if (engineConfig.getRoomSelector() == null) engineConfig.roomSelector(new PublicSquareRoomSelector<>());
+        if (engineConfig.getSendFilterPolicy() == null)
+            engineConfig.sendFilterPolicy(new ChattingEngineConfig.BroadcastExceptSelf());
+        if (engineConfig.getBroadcaster() == null) engineConfig.messageBroadcaster(new NoOpBroadcaster());
+        dataSource = engineConfig.isUseInvertedIndexSessionStore()
+                ? new InMemorySessionStore().enableReverseLookup()
+                : new InMemorySessionStore();
     }
 
-    private <T> T withDefault(T value, T defaultValue) {
-        return value != null ? value : defaultValue;
-    }
-
+    /**
+     * 초기화된 {@link ChatManager} 인스턴스를 반환합니다.
+     * <p>
+     * 채팅 메시지 송신 또는 필터링 등과 같은 고수준 채팅 제어 기능을 제공하는 컴포넌트입니다.
+     * </p>
+     *
+     * @return {@link ChatManager} 인스턴스
+     */
     @Override
     protected void initResource() {
-        this.dataSource = new InMemorySessionStore();
-        this.chatManager = new ChatManager(dataSource, engineExecutor, engineConfig);
+        SendFilterPolicy sendFilterPolicy = engineConfig.getSendFilterPolicy();
+        MessageBroadcaster broadcaster = engineConfig.getBroadcaster();
+        this.chatManager = new ChatManager(dataSource, engineExecutor, sendFilterPolicy, broadcaster);
     }
 
+    /**
+     * 엔진의 스레드 풀을 안전하게 종료합니다.
+     * 일정 시간 내 종료되지 않으면 강제 종료를 수행합니다.
+     */
     @Override
     protected void stopThreadPool() {
         engineExecutor.shutdown();
         try {
             boolean b = engineExecutor.awaitTermination(10, TimeUnit.SECONDS);
             if (!b) {
+                Thread.sleep(10_000); // wait 10 seconds
                 engineExecutor.shutdownNow();
             }
         } catch (InterruptedException e) {
@@ -100,6 +150,14 @@ public class ChattingEngine extends AbstractEngineLifecycle {
         }
     }
 
+    /**
+     * 특정 소켓과 context 정보를 바탕으로 룸에 참여시킵니다.
+     *
+     * @param socket  참여할 사용자의 소켓
+     * @param context 룸 선택에 사용될 컨텍스트 (예: 사용자 정보, 위치 등)
+     * @param <T>     context의 타입
+     * @return 참여한 룸의 ID
+     */
     public <T> long participate(Socket socket, T context) {
         RoomSelector<T> roomSelector = engineConfig.getRoomSelector();
         long roomId = roomSelector.selectRoom(socket, context);
@@ -107,6 +165,13 @@ public class ChattingEngine extends AbstractEngineLifecycle {
         return roomId;
     }
 
+    /**
+     * 특정 소켓과 context 정보를 바탕으로 룸에서 퇴장 처리합니다.
+     *
+     * @param socket  퇴장할 사용자의 소켓
+     * @param context 룸 선택에 사용될 컨텍스트 (예: 사용자 정보, 위치 등)
+     * @param <T>     context의 타입
+     */
     public <T> void leave(Socket socket, T context) {
         RoomSelector<T> roomSelector = engineConfig.getRoomSelector();
         long roomId = roomSelector.selectRoom(socket, context);

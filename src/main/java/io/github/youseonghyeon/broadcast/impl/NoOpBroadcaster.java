@@ -8,8 +8,7 @@ import io.github.youseonghyeon.broadcast.MessageBroadcaster;
 public class NoOpBroadcaster implements MessageBroadcaster {
 
     @Override
-    public void broadcast(Object obj) {
+    public void broadcast(Long roomId, Object message) {
         // No operation performed
     }
-
 }

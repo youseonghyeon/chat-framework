@@ -19,7 +19,7 @@ public class ConfigExample {
         engine.setConfig(config -> config
                 .roomSelector(new RoomIdentifier())
                 .sendFilterPolicy(new ChattingEngineConfig.BroadcastExceptSelf())
-                .threadPoolSize(10, 100)
+                .threadPool(10, 100)
         );
 
         engine.start();
