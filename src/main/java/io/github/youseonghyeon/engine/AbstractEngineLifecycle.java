@@ -36,8 +36,8 @@ abstract class AbstractEngineLifecycle {
                 throw new IllegalStateException("Engine is already started.");
             }
             initThreadPool();
-            initResource();
             initDefaultConfigIfAbsent();
+            initResource();
             started = true;
         });
     }
