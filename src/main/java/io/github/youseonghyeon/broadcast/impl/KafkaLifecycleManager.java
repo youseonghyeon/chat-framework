@@ -7,7 +7,7 @@ import java.util.Objects;
 import java.util.Properties;
 import java.util.concurrent.*;
 
-class KafkaLifecycleManager {
+abstract class KafkaLifecycleManager {
 
     // TODO OOM 발생 문제를 제거하기 위해 queue size 제한 필요
     private ExecutorService executorService;
@@ -39,9 +39,9 @@ class KafkaLifecycleManager {
     };
 
 
-    public KafkaLifecycleManager(Integer callbackRunnerThreadCount) {
+    protected KafkaLifecycleManager(Integer callbackRunnerThreadCount) {
         this.executorService = initThreadPool(callbackRunnerThreadCount);
-        Runtime.getRuntime().addShutdownHook(new Thread(closeResource));
+        Runtime.getRuntime().addShutdownHook(new Thread(closeResource, "KafkaLifecycleManager-ShutdownHook"));
     }
 
     private ExecutorService initThreadPool(Integer callbackRunnerThreadCount) {
