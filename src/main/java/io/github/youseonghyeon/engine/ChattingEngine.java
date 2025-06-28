@@ -10,6 +10,7 @@ import io.github.youseonghyeon.session.SessionStore;
 
 import java.io.IOException;
 import java.net.Socket;
+import java.util.Objects;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.RejectedExecutionHandler;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -65,6 +66,7 @@ public class ChattingEngine extends AbstractEngineLifecycle {
      *                    {@code config -> config.roomSelector(...).threadPoolSize(...)} 와 같이 사용됩니다.
      */
     public void setConfig(Function<ChattingEngineConfig, ChattingEngineConfig> configChain) {
+        Objects.requireNonNull(configChain, "Config chain must not be null");
         this.engineConfig = configChain.apply(new ChattingEngineConfig());
     }
 
@@ -75,6 +77,7 @@ public class ChattingEngine extends AbstractEngineLifecycle {
      * @return 초기화된 ChatManager 인스턴스
      */
     public ChatManager chatManager() {
+        Objects.requireNonNull(engineConfig, "ChattingEngineConfig is not initialized. Please call start() first.");
         return chatManager;
     }
 
@@ -123,8 +126,6 @@ public class ChattingEngine extends AbstractEngineLifecycle {
      * <p>
      * 채팅 메시지 송신 또는 필터링 등과 같은 고수준 채팅 제어 기능을 제공하는 컴포넌트입니다.
      * </p>
-     *
-     * @return {@link ChatManager} 인스턴스
      */
     @Override
     protected void initResource() {

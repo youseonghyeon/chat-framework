@@ -17,7 +17,7 @@ import java.util.concurrent.Executors;
 
 public class EngineStarter {
 
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) {
         ChattingEngine engine = new ChattingEngine();
 
         engine.setConfig(config -> config
@@ -30,7 +30,7 @@ public class EngineStarter {
 
         ExecutorService executorService = Executors.newSingleThreadExecutor();
         executorService.submit(new ServerSocketExample(engine));
-
+        Runtime.getRuntime().addShutdownHook(new Thread(executorService::shutdownNow));
     }
 
     private static class HandleClient implements Runnable {
@@ -73,7 +73,7 @@ public class EngineStarter {
             try (ServerSocket serverSocket = new ServerSocket(9999)) {
                 while (true) {
                     Socket socket = serverSocket.accept();
-                    System.out.println("New client connected: " + socket.getInetAddress());
+                    System.out.println("New client connected: " + socket.getInetAddress() + ":" + socket.getPort());
                     long roomId = chattingEngine.participate(socket, null);
                     HandleClient handleClient = new HandleClient(socket, chattingEngine.chatManager(), roomId);
                     Thread.startVirtualThread(handleClient);

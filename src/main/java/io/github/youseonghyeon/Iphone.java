@@ -4,7 +4,7 @@ import java.io.*;
 import java.net.Socket;
 import java.util.Scanner;
 
-public class ClientB {
+public class Iphone {
 
     public static void main(String[] args) throws IOException, InterruptedException {
         Socket socket = new Socket("localhost", 9999);
