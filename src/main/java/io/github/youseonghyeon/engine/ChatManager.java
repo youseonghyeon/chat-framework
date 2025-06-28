@@ -1,8 +1,8 @@
 package io.github.youseonghyeon.engine;
 
 import io.github.youseonghyeon.broadcast.MessageBroadcaster;
-import io.github.youseonghyeon.engine.config.SendFilterPolicy;
 import io.github.youseonghyeon.engine.config.MessageWriter;
+import io.github.youseonghyeon.engine.config.SendFilterPolicy;
 import io.github.youseonghyeon.engine.exception.NoParticipantException;
 import io.github.youseonghyeon.session.SessionStore;
 
@@ -47,9 +47,9 @@ public class ChatManager {
      * ChatManager 인스턴스를 생성합니다.
      *
      * @param sessionStore 룸-소켓 매핑을 담당하는 인메모리 세션 저장소
-     * @param executor 메시지 전송을 처리할 비동기 스레드 풀
+     * @param executor     메시지 전송을 처리할 비동기 스레드 풀
      * @param filterPolicy 메시지 송신 여부를 판단하는 필터 정책
-     * @param broadcaster 메시지 후속 브로드캐스트 처리기 (예: 로그, 이벤트 발행 등)
+     * @param broadcaster  메시지 후속 브로드캐스트 처리기 (예: 로그, 이벤트 발행 등)
      */
     public ChatManager(SessionStore sessionStore,
                        ThreadPoolExecutor executor,
@@ -59,17 +59,34 @@ public class ChatManager {
         this.executor = executor;
         this.filterPolicy = filterPolicy;
         this.broadcaster = broadcaster;
+        initBroadcasterConsumer();
     }
+
+    private void initBroadcasterConsumer() {
+        broadcaster.onMessage((roomId, message) -> {
+            Set<Socket> targetSockets = extractAllSockets((Long) roomId);
+            if (targetSockets.isEmpty()) return;
+            for (Socket socket : targetSockets) {
+                executor.submit(() -> writeMessage(socket, message, new MessageWriter<Object>() {
+                    @Override
+                    public void write(Object message, OutputStream outputStream) {
+                        // TODO: 메시지 직렬화 로직 구현
+                    }
+                }));
+            }
+        });
+    }
+
 
     /**
      * 주어진 소켓과 룸 ID를 기반으로, 해당 룸에 메시지를 전송합니다.
      * 송신 대상은 {@link SendFilterPolicy}에 의해 필터링됩니다.
      *
-     * @param self 송신자 소켓
-     * @param roomId 메시지를 전송할 룸 ID
-     * @param message 전송할 메시지 객체
+     * @param self          송신자 소켓
+     * @param roomId        메시지를 전송할 룸 ID
+     * @param message       전송할 메시지 객체
      * @param messageWriter 메시지를 직렬화하여 OutputStream에 쓰는 전략
-     * @param <T> 메시지 타입
+     * @param <T>           메시지 타입
      * @throws NoParticipantException 대상이 없을 경우 예외를 던질 수 있음 (현재는 생략됨)
      */
     public <T> void send(Socket self, Long roomId, T message, MessageWriter<T> messageWriter) {
@@ -91,7 +108,7 @@ public class ChatManager {
     /**
      * 룸 내의 모든 소켓 중 필터 정책에 따라 송신 대상만 추출합니다.
      *
-     * @param self 송신자 소켓
+     * @param self   송신자 소켓
      * @param roomId 룸 ID
      * @return 송신 대상 소켓 목록
      */
@@ -102,14 +119,18 @@ public class ChatManager {
                 .toList();
     }
 
+    private Set<Socket> extractAllSockets(Long roomId) {
+        return sessionStore.findRoomBy(roomId);
+    }
+
     /**
      * 주어진 소켓에 메시지를 직렬화하여 전송합니다.
      * <p>예외가 발생해도 호출자에게 전달되지 않고 내부에서 처리됩니다.</p>
      *
-     * @param socket 대상 소켓
-     * @param message 전송할 메시지
+     * @param socket        대상 소켓
+     * @param message       전송할 메시지
      * @param messageWriter 메시지 직렬화 전략
-     * @param <T> 메시지 타입
+     * @param <T>           메시지 타입
      */
     private static <T> void writeMessage(Socket socket, T message, MessageWriter<T> messageWriter) {
         try {

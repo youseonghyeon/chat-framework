@@ -1,7 +1,11 @@
 package io.github.youseonghyeon.broadcast;
 
-public interface MessageBroadcaster {
+import java.util.function.BiConsumer;
 
-    void broadcast(Long roomId, Object message);
+public interface MessageBroadcaster<E> {
+
+    void broadcast(Long roomId, E message);
+
+    void onMessage(BiConsumer<Long, E> callback);
 
 }
