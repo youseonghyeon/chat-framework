@@ -36,6 +36,7 @@ import java.util.concurrent.ThreadPoolExecutor;
  * }</pre>
  * </p>
  */
+@Deprecated(forRemoval = true)
 public class ChatManager {
 
     private final SessionStore sessionStore;
@@ -67,11 +68,8 @@ public class ChatManager {
             Set<Socket> targetSockets = extractAllSockets((Long) roomId);
             if (targetSockets.isEmpty()) return;
             for (Socket socket : targetSockets) {
-                executor.submit(() -> writeMessage(socket, message, new MessageWriter<Object>() {
-                    @Override
-                    public void write(Object message, OutputStream outputStream) {
-                        // TODO: 메시지 직렬화 로직 구현
-                    }
+                executor.submit(() -> writeMessage(socket, message, (message1, outputStream) -> {
+                    // TODO: 메시지 직렬화 로직 구현
                 }));
             }
         });

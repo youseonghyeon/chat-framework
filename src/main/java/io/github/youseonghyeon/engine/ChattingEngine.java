@@ -51,6 +51,7 @@ import java.util.function.Function;
  * @author 유성현
  * @version preview-1.0.0
  */
+@Deprecated(forRemoval = true)
 public class ChattingEngine extends AbstractEngineLifecycle {
 
     private ChattingEngineConfig engineConfig;
@@ -176,7 +177,7 @@ public class ChattingEngine extends AbstractEngineLifecycle {
     public <T> long participate(Socket socket, T context) {
         RoomSelector<T> roomSelector = engineConfig.getRoomSelector();
         long roomId = roomSelector.selectRoom(socket, context);
-        sessionStore.registerSocketToRoom(socket, roomId);
+        sessionStore.join(socket, roomId);
         return roomId;
     }
 
@@ -190,6 +191,6 @@ public class ChattingEngine extends AbstractEngineLifecycle {
     public <T> void leave(Socket socket, T context) {
         RoomSelector<T> roomSelector = engineConfig.getRoomSelector();
         long roomId = roomSelector.selectRoom(socket, context);
-        sessionStore.removeSocketFromRoom(socket, roomId);
+        sessionStore.leave(socket, roomId);
     }
 }

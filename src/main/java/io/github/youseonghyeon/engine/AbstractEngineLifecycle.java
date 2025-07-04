@@ -38,6 +38,7 @@ abstract class AbstractEngineLifecycle {
             initThreadPool();
             initDefaultConfigIfAbsent();
             initResource();
+            startEngine();
             started = true;
         });
     }
@@ -124,5 +125,6 @@ abstract class AbstractEngineLifecycle {
         return value != null ? value : defaultValue;
     }
 
+    protected abstract void startEngine();
 
 }

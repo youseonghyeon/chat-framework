@@ -76,6 +76,8 @@ public class KafkaBroadcaster<E> extends KafkaLifecycleManager implements Messag
         producer.send(record, callback);
     }
 
+    // TODO onMessage를 kafka쪽에서 실행하는 것으로 변경 필요
+
     @Override
     public void onMessage(BiConsumer<Long, E> callback) {
         boolean result = consumerRunning.compareAndExchange(false, true);

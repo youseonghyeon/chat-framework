@@ -24,7 +24,7 @@ class SessionStoreTest {
         Long roomId = 1L;
 
         // Act
-        store.registerSocketToRoom(socket, roomId);
+        store.join(socket, roomId);
 
         // Assert
         Set<Socket> socketsInRoom = store.findRoomBy(roomId);
@@ -40,11 +40,11 @@ class SessionStoreTest {
         Long roomId = null;
 
         // Act & Assert
-        assertThrows(NullPointerException.class, () -> store.registerSocketToRoom(socket, roomId));
+        assertThrows(NullPointerException.class, () -> store.join(socket, roomId));
     }
 
     @Test
-    void testRegisterSocketToRoomConcurrentAccess() {
+    void testJoinConcurrentAccess() {
         // Arrange
         SessionStore store = new SessionStore();
         Socket socket1 = new Socket();
@@ -52,8 +52,8 @@ class SessionStoreTest {
         Long roomId = 7L;
 
         // Act
-        Thread thread1 = new Thread(() -> store.registerSocketToRoom(socket1, roomId));
-        Thread thread2 = new Thread(() -> store.registerSocketToRoom(socket2, roomId));
+        Thread thread1 = new Thread(() -> store.join(socket1, roomId));
+        Thread thread2 = new Thread(() -> store.join(socket2, roomId));
         thread1.start();
         thread2.start();
 
@@ -81,8 +81,8 @@ class SessionStoreTest {
         Long roomId2 = 9L;
 
         // Act
-        store.registerSocketToRoom(socket, roomId1);
-        store.registerSocketToRoom(socket, roomId2);
+        store.join(socket, roomId1);
+        store.join(socket, roomId2);
 
         // Assert
         Set<Socket> socketsInRoom1 = store.findRoomBy(roomId1);
@@ -102,10 +102,10 @@ class SessionStoreTest {
         Socket socket2 = new Socket();
         Long roomId = 2L;
 
-        store.registerSocketToRoom(socket1, roomId);
+        store.join(socket1, roomId);
 
         // Act
-        store.registerSocketToRoom(socket2, roomId);
+        store.join(socket2, roomId);
 
         // Assert
         Set<Socket> socketsInRoom = store.findRoomBy(roomId);
@@ -122,10 +122,10 @@ class SessionStoreTest {
         Socket socket = new Socket();
         Long roomId = 3L;
 
-        store.registerSocketToRoom(socket, roomId);
+        store.join(socket, roomId);
 
         // Act
-        store.registerSocketToRoom(socket, roomId);
+        store.join(socket, roomId);
 
         // Assert
         Set<Socket> socketsInRoom = store.findRoomBy(roomId);
@@ -143,8 +143,8 @@ class SessionStoreTest {
         Long roomId2 = 5L;
 
         // Act
-        store.registerSocketToRoom(socket, roomId1);
-        store.registerSocketToRoom(socket, roomId2);
+        store.join(socket, roomId1);
+        store.join(socket, roomId2);
 
         // Assert
         Set<Socket> socketsInRoom1 = store.findRoomBy(roomId1);

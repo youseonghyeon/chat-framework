@@ -1,6 +1,9 @@
 package io.github.youseonghyeon.engine.config;
 
 import io.github.youseonghyeon.broadcast.MessageBroadcaster;
+import io.github.youseonghyeon.engine.MessageReader;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.net.Socket;
 import java.util.concurrent.RejectedExecutionHandler;
@@ -25,6 +28,7 @@ import java.util.concurrent.RejectedExecutionHandler;
  */
 public class ChattingEngineConfig {
 
+    private static final Logger log = LoggerFactory.getLogger(ChattingEngineConfig.class);
     private RoomSelector<?> roomSelector;
     private Integer coreThreadPoolSize;
     private Integer maxThreadPoolSize;
@@ -32,6 +36,7 @@ public class ChattingEngineConfig {
     private MessageBroadcaster messageBroadcaster;
     private boolean useInvertedIndexSessionStore = false;
     private RejectedExecutionHandler rejectedExecutionHandler;
+    private int port;
 
     /**
      * 룸 선택 전략을 설정합니다.
@@ -123,6 +128,11 @@ public class ChattingEngineConfig {
         return this;
     }
 
+    public ChattingEngineConfig port(int port) {
+        this.port = port;
+        return this;
+    }
+
     // -- Getters
 
     @SuppressWarnings("unchecked")
@@ -152,6 +162,15 @@ public class ChattingEngineConfig {
 
     public RejectedExecutionHandler getRejectedExecutionHandler() {
         return rejectedExecutionHandler;
+    }
+
+    public int getPort() {
+        return port;
+    }
+
+    public MessageReader getMessageReader() {
+        // TODO 메시지 리더 구현 필요
+        throw new UnsupportedOperationException("getMessageReader() is not implemented yet.");
     }
 
     /**

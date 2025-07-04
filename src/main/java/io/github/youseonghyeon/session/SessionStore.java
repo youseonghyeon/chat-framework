@@ -25,7 +25,8 @@ import java.util.concurrent.CopyOnWriteArraySet;
  * store.registerSocketToRoom(socket, 1L);
  * }</pre>
  */
-public class SessionStore {
+@Deprecated(forRemoval = true)
+public class SessionStore implements ChatRoomLegacy {
     // TODO 끊어진 세션 제거용 스레드를 추가하거나, 조회할 때 같이 제거하는 로직 추가 필요
 
     /**
@@ -62,7 +63,7 @@ public class SessionStore {
      * @param socket 등록할 소켓
      * @param roomId 소켓이 참여할 채팅방 ID
      */
-    public void registerSocketToRoom(Socket socket, Long roomId) {
+    public void join(Socket socket, Long roomId) {
         this.addToRoom(socket, roomId);
         roomSockets.get(roomId); // Optional: side-effect 없음
     }
@@ -73,7 +74,7 @@ public class SessionStore {
      * @param socket 제거할 소켓
      * @param roomId 채팅방 ID
      */
-    public void removeSocketFromRoom(Socket socket, Long roomId) {
+    public void leave(Socket socket, Long roomId) {
         this.removeFromRoom(socket, roomId);
     }
 
@@ -145,8 +146,8 @@ public class SessionStore {
          * 소켓을 채팅방에 등록하고, 역방향 인덱스를 갱신합니다.
          */
         @Override
-        public void registerSocketToRoom(Socket socket, Long roomId) {
-            super.registerSocketToRoom(socket, roomId);
+        public void join(Socket socket, Long roomId) {
+            super.join(socket, roomId);
             addInvertedIndex(socket, roomId);
         }
 
@@ -154,8 +155,8 @@ public class SessionStore {
          * 소켓을 채팅방에서 제거하고, 역방향 인덱스를 갱신합니다.
          */
         @Override
-        public void removeSocketFromRoom(Socket socket, Long roomId) {
-            super.removeSocketFromRoom(socket, roomId);
+        public void leave(Socket socket, Long roomId) {
+            super.leave(socket, roomId);
             removeInvertedIndex(socket, roomId);
         }
 
