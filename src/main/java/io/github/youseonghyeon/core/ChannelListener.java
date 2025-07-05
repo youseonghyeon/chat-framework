@@ -1,15 +1,18 @@
 package io.github.youseonghyeon.core;
 
-import io.github.youseonghyeon.utils.ExecutorCoordinator;
+import io.github.youseonghyeon.config.adapter.MessageReceiver;
 import io.github.youseonghyeon.core.dto.Message;
-import io.github.youseonghyeon.config.serializer.MessageReader;
-import io.github.youseonghyeon.exception.InitChatServiceException;
 import io.github.youseonghyeon.core.event.ChatEventPublisher;
+import io.github.youseonghyeon.exception.ChannelReadException;
+import io.github.youseonghyeon.exception.InitChatServiceException;
+import io.github.youseonghyeon.exception.ReadFailureHandler;
+import io.github.youseonghyeon.utils.ExecutorCoordinator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
@@ -28,40 +31,55 @@ public class ChannelListener implements Runnable {
 
     private final Selector selector;
     private final ServerSocketChannel serverSocketChannel;
-    private final MessageReader messageReader;
+    private final MessageReceiver messageReceiver;
     private final ChatEventPublisher chatEventPublisher;
     private ExecutorService channelReadExecutor;
     private ExecutorService eventLoopExecutor;
 
+    private ReadFailureHandler readFailureHandler;
 
-    public ChannelListener(int port, MessageReader messageReader, ChatEventPublisher chatEventPublisher) {
+    private volatile boolean shutdown = false;
+
+
+    public ChannelListener(int port, MessageReceiver messageReceiver, ChatEventPublisher chatEventPublisher) {
         try {
             this.selector = Selector.open();
-            this.serverSocketChannel = ServerSocketChannel.open();
-            InetSocketAddress local = new InetSocketAddress(port);
-            this.serverSocketChannel.bind(local);
-            this.serverSocketChannel.configureBlocking(false);
-            this.serverSocketChannel.register(selector, SelectionKey.OP_ACCEPT);
+            this.serverSocketChannel = openServer(selector, port);
         } catch (IOException e) {
             throw new InitChatServiceException(e);
         }
-        this.messageReader = messageReader;
+        this.messageReceiver = messageReceiver;
         this.chatEventPublisher = chatEventPublisher;
+    }
+
+    private static ServerSocketChannel openServer(Selector selector, int p) throws IOException {
+        ServerSocketChannel ssc = ServerSocketChannel.open();
+        InetSocketAddress local = new InetSocketAddress(p);
+        ssc.bind(local);
+        ssc.configureBlocking(false);
+        ssc.register(selector, SelectionKey.OP_ACCEPT);
+        return ssc;
     }
 
     @Override
     public void run() {
         this.eventLoopExecutor = Executors.newSingleThreadExecutor();
-        this.channelReadExecutor = Executors.newFixedThreadPool(50); // config 대상
+
+        // TODO Thread Pool Executor 로 동적 크기 조정 적용 및 Backpressure 처리 필요
+        this.channelReadExecutor = Executors.newFixedThreadPool(50);
 
         eventLoopExecutor.submit(this::runLoop);
 
         Runtime.getRuntime()
-                .addShutdownHook(new Thread(() -> ExecutorCoordinator.shutdownSequential(eventLoopExecutor, channelReadExecutor), "EventLoopShutdownHook"));
+                .addShutdownHook(new Thread(() -> {
+                    shutdown = true;
+                    ExecutorCoordinator.shutdownSequential(eventLoopExecutor, channelReadExecutor);
+                }, "EventLoopShutdownHook"));
     }
 
-    public void runLoop() {
-        while (true) {
+    public ByteBuffer buffer = ByteBuffer.allocate(1024);
+    private void runLoop() {
+        while (!shutdown) {
             try {
                 selector.select();
 
@@ -75,8 +93,16 @@ public class ChannelListener implements Runnable {
                         handleAccept(serverSocketChannel, selector);
                     }
                     if (key.isReadable()) {
+                        key.interestOps(key.interestOps() & ~SelectionKey.OP_READ);
                         SocketChannel client = (SocketChannel) key.channel();
-                        channelReadExecutor.submit(() -> handleRead(client));
+                        channelReadExecutor.submit(() -> {
+                            try {
+                                handleRead(client);
+                            } finally {
+                                key.interestOps(key.interestOps() | SelectionKey.OP_READ);
+                                selector.wakeup();
+                            }
+                        });
                     }
                 }
             } catch (IOException e) {
@@ -86,14 +112,15 @@ public class ChannelListener implements Runnable {
     }
 
     private void handleRead(SocketChannel clientChannel) {
-        log.trace("Handling read from channel: {}", clientChannel);
-        Message message = messageReader.read(clientChannel);
-        String roomId = message.roomId();
-        if (roomId == null || roomId.isEmpty()) {
-            log.warn("Received message without room ID: {}", message);
-            return; // 메시지에 roomId 가 없으면 무시
+        try {
+            log.info("Received message from channel: {}", clientChannel);
+            Message message = messageReceiver.read(clientChannel);
+            log.info("Received message: {}", message);
+            chatEventPublisher.publish(message);
+        } catch (ChannelReadException e) {
+            log.error("Failed to read message from channel: {}", clientChannel, e);
+            readFailureHandler.handle(clientChannel, e);
         }
-        chatEventPublisher.publish(message);
     }
 
     private void handleAccept(ServerSocketChannel serverSocketChannel, Selector selector) throws IOException {

@@ -80,4 +80,26 @@ public interface SendFilterPolicy {
         Objects.requireNonNull(target);
         return target.negate();
     }
+
+
+    /**
+     * 송신자 본인을 제외하고 메시지를 브로드캐스트하는 기본 필터입니다.
+     */
+    class BroadcastExceptSelf implements SendFilterPolicy {
+        @Override
+        public boolean shouldSend(Socket receiver, Socket sender) {
+            return !receiver.equals(sender);
+        }
+    }
+
+    /**
+     * 양쪽 소켓이 연결 상태일 때만 메시지를 송신하는 필터입니다.
+     * 기본적으로 모든 필터 체인 앞단에 적용됩니다.
+     */
+    class NotConnected implements SendFilterPolicy {
+        @Override
+        public boolean shouldSend(Socket receiver, Socket sender) {
+            return receiver.isConnected() && sender.isConnected();
+        }
+    }
 }

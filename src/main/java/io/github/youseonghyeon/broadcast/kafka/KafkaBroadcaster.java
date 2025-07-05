@@ -1,8 +1,8 @@
 package io.github.youseonghyeon.broadcast.kafka;
 
-import io.github.youseonghyeon.broadcast.KafkaMessageBroadcastSubscriber;
 import io.github.youseonghyeon.core.event.ChatEventPublisher;
 import io.github.youseonghyeon.core.dto.Message;
+import io.github.youseonghyeon.core.event.MessageSubscriber;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
@@ -18,7 +18,7 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
 
-public class KafkaBroadcaster<E extends Message> extends KafkaLifecycleManager implements KafkaMessageBroadcastSubscriber<E> {
+public class KafkaBroadcaster<E extends Message> extends KafkaLifecycleManager implements MessageSubscriber {
 
     private final Logger log = LoggerFactory.getLogger(KafkaBroadcaster.class);
 

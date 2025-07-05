@@ -24,6 +24,7 @@ public class ChatEventPublisher {
     }
 
     public void publish(Message message) {
+        log.info("Publishing message: {}", message);
         EventType subType = message.eventType();
         if (subType == null) throw new IllegalArgumentException("Message type cannot be null");
         MessageSubscriber messageSubscriber = eventHandlerMap.get(subType);

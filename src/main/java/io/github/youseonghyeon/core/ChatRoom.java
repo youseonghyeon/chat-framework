@@ -31,6 +31,13 @@ public class ChatRoom {
         participants.remove(user);
     }
 
+    public void leave(SocketChannel socketChannel) {
+        participants.stream()
+                .filter(user -> user.getSocketChannel().equals(socketChannel))
+                .findFirst()
+                .ifPresent(this::leave);
+    }
+
     public void broadcast(Message message) {
         broadcast(message, null);
     }
@@ -40,7 +47,7 @@ public class ChatRoom {
                 .forEach(user -> sendMessage(user.getSocketChannel(), message));
     }
 
-    public void sendMessage(SocketChannel client, Message message) {
+    private void sendMessage(SocketChannel client, Message message) {
         messageWriter.accept(client, message);
     }
 }

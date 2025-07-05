@@ -1,35 +1,42 @@
 package io.github.youseonghyeon;
 
-import java.io.*;
-import java.net.Socket;
+import io.github.youseonghyeon.core.dto.Message;
+import io.github.youseonghyeon.core.event.EventType;
+
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.nio.ByteBuffer;
+import java.nio.channels.SocketChannel;
+import java.nio.charset.StandardCharsets;
 import java.util.Scanner;
 
 public class Android {
 
     public static void main(String[] args) throws IOException, InterruptedException {
-        Socket socket = new Socket("localhost", 9999);
-        Thread.startVirtualThread(new RequestHandler(socket));
-        Thread.startVirtualThread(new ResponseHandler(socket));
+        SocketChannel socketChannel = SocketChannel.open(new InetSocketAddress("localhost", 9999));
+        Thread.startVirtualThread(new RequestHandler(socketChannel));
+        Thread.startVirtualThread(new ResponseHandler(socketChannel));
         Thread.sleep(Long.MAX_VALUE);
     }
 
     private static class RequestHandler implements Runnable {
-        private final Socket socket;
+        private final SocketChannel socketChannel;
         private final Scanner sc = new Scanner(System.in);
 
-        public RequestHandler(Socket socket) {
-            this.socket = socket;
+        public RequestHandler(SocketChannel socketChannel) {
+            this.socketChannel = socketChannel;
         }
 
         @Override
         public void run() {
             try {
-                OutputStream out = socket.getOutputStream();
-                DataOutputStream dos = new DataOutputStream(out);
                 while (true) {
                     String message = sc.nextLine();
-                    dos.writeUTF(message);
-                    dos.flush();
+                    Message room1 = new Message(EventType.ENTER, "room1", "header".getBytes(StandardCharsets.UTF_8), message.getBytes(StandardCharsets.UTF_8), null);
+                    ByteBuffer buffer = serialize(room1);
+                    buffer.flip();
+                    socketChannel.write(buffer);
+
                 }
             } catch (IOException e) {
                 e.printStackTrace();
@@ -38,24 +45,55 @@ public class Android {
     }
 
     private static class ResponseHandler implements Runnable {
-        private final Socket socket;
+        private final SocketChannel socketChannel;
 
-        public ResponseHandler(Socket socket) {
-            this.socket = socket;
+        public ResponseHandler(SocketChannel socketChannel) {
+            this.socketChannel = socketChannel;
         }
 
         @Override
         public void run() {
-            try {
-                InputStream in = socket.getInputStream();
-                DataInputStream dis = new DataInputStream(in);
-                while (true) {
-                    String message = dis.readUTF();
-                    System.out.println("Received: " + message);
-                }
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+//            try {
+//                InputStream in = socket.getInputStream();
+//                DataInputStream dis = new DataInputStream(in);
+//                while (true) {
+//                    String message = dis.readUTF();
+//                    System.out.println("Received: " + message);
+//                }
+//            } catch (IOException e) {
+//                e.printStackTrace();
+//            }
         }
+    }
+
+    private static ByteBuffer serialize(Message message) {
+        byte[] roomIdBytes = message.roomId().getBytes(StandardCharsets.UTF_8);
+        byte[] header = message.header();
+        byte[] content = message.content();
+
+        int totalSize =
+                4 + // eventType ordinal (int)
+                4 + roomIdBytes.length + // roomId length + data
+                4 + header.length + // header length + data
+                4 + content.length; // content length + data
+
+        ByteBuffer buffer = ByteBuffer.allocate(totalSize);
+
+        // 1. EventType ordinal
+        buffer.putInt(message.eventType().ordinal());
+
+        // 2. Room ID
+        buffer.putInt(roomIdBytes.length);
+        buffer.put(roomIdBytes);
+
+        // 3. Header
+        buffer.putInt(header.length);
+        buffer.put(header);
+
+        // 4. Content
+        buffer.putInt(content.length);
+        buffer.put(content);
+
+        return buffer;
     }
 }
