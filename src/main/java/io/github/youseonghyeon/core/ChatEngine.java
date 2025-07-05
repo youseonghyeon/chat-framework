@@ -55,7 +55,7 @@ public class ChatEngine extends AbstractEngineLifecycle {
         Map<EventType, MessageSubscriber> messageSubscriberMap = config.getMessageSubscriberMap();
 
         // for test
-        messageSubscriberMap.put(EventType.ENTER, new EnterRoom(chatRoomMap));
+        messageSubscriberMap.put(EventType.ENTER, new EnterRoom(chatRoomMap, config.getMessageSender()));
         messageSubscriberMap.put(EventType.LEAVE, new LeaveRoom(chatRoomMap));
         messageSubscriberMap.put(EventType.USER_SEND, new SendMessage(chatRoomMap));
         //

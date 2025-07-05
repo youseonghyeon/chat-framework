@@ -20,7 +20,11 @@ public class LeaveRoom implements MessageSubscriber {
 
     @Override
     public void subscribe(Message message) {
-        ChatRoom chatRoom = chatRoomMap.computeIfAbsent(message.roomId(), ChatRoom::new);
+        ChatRoom chatRoom = chatRoomMap.get(message.roomId());
+        if (chatRoom == null) {
+            throw new IllegalStateException("Chat room not found: " + message.roomId());
+        }
+
         chatRoom.leave(message.socketChannel());
     }
 

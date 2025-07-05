@@ -20,7 +20,7 @@ public class SendMessage implements MessageSubscriber {
     @Override
     public void subscribe(Message message) {
         ChatRoom chatRoom = chatRoomMap.get(message.roomId());
-        chatRoom.broadcast(message);
+        chatRoom.broadcast(message, message.socketChannel());
     }
 
     @Override
