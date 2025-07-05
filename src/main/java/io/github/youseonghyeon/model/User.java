@@ -1,6 +1,6 @@
 package io.github.youseonghyeon.model;
 
-import io.github.youseonghyeon.excpetion.ClientConnectionException;
+import io.github.youseonghyeon.exception.ClientConnectionException;
 
 import java.io.IOException;
 import java.nio.channels.SocketChannel;
