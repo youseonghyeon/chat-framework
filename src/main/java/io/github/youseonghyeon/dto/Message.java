@@ -2,6 +2,7 @@ package io.github.youseonghyeon.dto;
 
 import java.io.Serial;
 import java.io.Serializable;
+import java.nio.channels.SocketChannel;
 
 public class Message implements Serializable {
 
@@ -9,7 +10,6 @@ public class Message implements Serializable {
     private static final long serialVersionUID = 1135971365917834L;
 
     private MessageType type;
-    private SenderChannel senderChannel;
     private byte[] content;
     private byte[] header;
 
@@ -20,14 +20,6 @@ public class Message implements Serializable {
 
     public void setType(MessageType type) {
         this.type = type;
-    }
-
-    public SenderChannel getSenderChannel() {
-        return senderChannel;
-    }
-
-    public void setSenderChannel(SenderChannel senderChannel) {
-        this.senderChannel = senderChannel;
     }
 
     public byte[] getContent() {
