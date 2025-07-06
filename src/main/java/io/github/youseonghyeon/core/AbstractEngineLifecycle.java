@@ -1,6 +1,9 @@
 package io.github.youseonghyeon.core;
 
-import java.util.concurrent.TimeUnit;
+import io.github.youseonghyeon.utils.LockCoordinator;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.concurrent.locks.ReentrantLock;
 
 /**
@@ -17,12 +20,13 @@ import java.util.concurrent.locks.ReentrantLock;
  */
 abstract class AbstractEngineLifecycle {
 
+    private static final Logger log = LoggerFactory.getLogger(AbstractEngineLifecycle.class);
     /// 엔진 상태 변경 시 동시성 제어를 위한 락입니다.
     private final ReentrantLock lock = new ReentrantLock(false);
     /// 엔진이 이미 시작되었는지를 나타내는 플래그입니다.
     private volatile boolean started = false;
 
-    final int lockTimeout = 10;
+    final int LOCK_SECONDS = 10;
 
     /**
      * 엔진을 시작합니다. 내부적으로 스레드 풀, 리소스, 룸 셀렉터를 초기화하며,
@@ -31,7 +35,8 @@ abstract class AbstractEngineLifecycle {
      * @throws IllegalStateException 이미 시작된 경우 또는 락 획득에 실패한 경우
      */
     public void start() {
-        withLock(() -> {
+        LockCoordinator.withLock(() -> {
+            log.info("Starting engine...");
             if (started) {
                 throw new IllegalStateException("Engine is already started.");
             }
@@ -39,7 +44,7 @@ abstract class AbstractEngineLifecycle {
             initResource();
             startEngine();
             started = true;
-        });
+        }, lock, LOCK_SECONDS);
     }
 
     /**
@@ -49,36 +54,15 @@ abstract class AbstractEngineLifecycle {
      * @throws IllegalStateException 아직 시작되지 않았거나 락 획득에 실패한 경우
      */
     public void stop() {
-        withLock(() -> {
+        LockCoordinator.withLock(() -> {
+            log.info("Stopping engine...");
             if (!started) {
                 throw new IllegalStateException("Engine is not started yet.");
             }
             started = false;
-        });
+        }, lock, LOCK_SECONDS);
     }
 
-    /**
-     * start() 또는 stop() 실행 시 동기화를 보장하기 위해 락을 사용하여
-     * 주어진 작업을 실행합니다.
-     *
-     * @param runnable 실행할 작업
-     * @throws RuntimeException 락 획득 중 인터럽트가 발생한 경우
-     */
-    private void withLock(Runnable runnable) {
-        try {
-            boolean tryLock = lock.tryLock(lockTimeout, TimeUnit.SECONDS);
-            if (!tryLock) {
-                throw new IllegalStateException("Failed to acquire lock within 10 seconds.");
-            }
-            try {
-                runnable.run();
-            } finally {
-                lock.unlock();
-            }
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
-    }
 
     /**
      * 자원 초기화를 위한 메서드입니다.
@@ -90,20 +74,6 @@ abstract class AbstractEngineLifecycle {
      * Config 가 설정되지 않았을 경우 기본 구현을 설정하기 위한 메서드입니다.
      */
     protected abstract void initDefaultConfigIfAbsent();
-
-    /**
-     * 최대 쓰레드 수를 기반으로 적절한 큐 크기를 반환합니다.
-     *
-     * @param maxThreadPoolSize 최대 쓰레드 수
-     * @return 큐 크기
-     */
-    protected int reasonableQueueSize(int maxThreadPoolSize) {
-        return Math.max(maxThreadPoolSize * 10, 100);
-    }
-
-    protected <T> T withDefault(T value, T defaultValue) {
-        return value != null ? value : defaultValue;
-    }
 
     protected abstract void startEngine();
 

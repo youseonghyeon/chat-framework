@@ -40,7 +40,6 @@ public class ChannelListener implements Runnable {
 
     private volatile boolean shutdown = false;
 
-
     public ChannelListener(int port, MessageReceiver messageReceiver, ChatEventPublisher chatEventPublisher) {
         try {
             this.selector = Selector.open();
@@ -78,11 +77,11 @@ public class ChannelListener implements Runnable {
     }
 
     public ByteBuffer buffer = ByteBuffer.allocate(1024);
+
     private void runLoop() {
         while (!shutdown) {
             try {
                 selector.select();
-
                 Set<SelectionKey> selectedKeys = selector.selectedKeys();
                 Iterator<SelectionKey> iter = selectedKeys.iterator();
 
@@ -106,20 +105,21 @@ public class ChannelListener implements Runnable {
                     }
                 }
             } catch (IOException e) {
-                throw new RuntimeException(e);
+                log.error("Failed to select channels", e);
+                // TODO 루프 내 리소스 초기화 기능 추가
             }
         }
     }
 
     private void handleRead(SocketChannel clientChannel) {
         try {
-            log.info("Received message from channel: {}", clientChannel);
             Message message = messageReceiver.read(clientChannel);
-            log.info("Received message: {}", message);
             chatEventPublisher.publish(message);
         } catch (ChannelReadException e) {
             log.error("Failed to read message from channel: {}", clientChannel, e);
-            readFailureHandler.handle(clientChannel, e);
+            if (readFailureHandler != null) {
+                readFailureHandler.handle(clientChannel, e);
+            }
         }
     }
 

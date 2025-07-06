@@ -110,7 +110,7 @@ public class ChatEngineConfig {
     public String toString() {
         return "sendFilterPolicy=" + sendFilterPolicy +
                "\n\tport=" + port +
-               "\n\tmessageSubscriberMap=" + messageSubscriberMap.keySet() +
+               "\n\tEventSubscriberList=" + messageSubscriberMap.keySet() +
                "\n\tmessageSender=" + messageSender.getClass().getName() +
                "\n\tmessageReceiver=" + messageReceiver.getClass().getName();
     }
