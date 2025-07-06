@@ -57,10 +57,8 @@ public class ChatRoom {
         if (user == null || user.getSocketChannel() == null)
             throw new UserSessionInvalidException("User or socket channel is null");
 
-        Boolean leaved = LockCoordinator.withLock(() -> {
-            user.closeConnection();
-            return participants.remove(user);
-        }, lock, 5);
+        // 한명의 사용자가 2개의 채팅방을 사용하고 있는 경우가 있으므로, socketChannel은 close 하지 않도록 함
+        Boolean leaved = LockCoordinator.withLock(() -> participants.remove(user), lock, 5);
 
         if (leaved) {
             log.info("User {} left room {}", user.getSocketChannel(), roomId);

@@ -1,6 +1,6 @@
 package io.github.youseonghyeon.config;
 
-import java.net.Socket;
+import java.nio.channels.SocketChannel;
 import java.util.Objects;
 
 /**
@@ -31,7 +31,7 @@ public interface SendFilterPolicy {
      * @param sender   송신자 소켓
      * @return true일 경우 메시지를 전송함
      */
-    boolean shouldSend(Socket receiver, Socket sender);
+    boolean shouldSend(SocketChannel receiver, SocketChannel sender);
 
     /**
      * 현재 정책과 주어진 정책을 논리 AND로 결합합니다.
@@ -87,7 +87,7 @@ public interface SendFilterPolicy {
      */
     class BroadcastExceptSelf implements SendFilterPolicy {
         @Override
-        public boolean shouldSend(Socket receiver, Socket sender) {
+        public boolean shouldSend(SocketChannel receiver, SocketChannel sender) {
             return !receiver.equals(sender);
         }
     }
@@ -98,7 +98,7 @@ public interface SendFilterPolicy {
      */
     class NotConnected implements SendFilterPolicy {
         @Override
-        public boolean shouldSend(Socket receiver, Socket sender) {
+        public boolean shouldSend(SocketChannel receiver, SocketChannel sender) {
             return receiver.isConnected() && sender.isConnected();
         }
     }

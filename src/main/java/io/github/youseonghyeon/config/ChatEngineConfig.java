@@ -40,7 +40,7 @@ public class ChatEngineConfig {
 
     /**
      * 여러 개의 송신 필터를 조합하여 하나의 정책으로 병합합니다.
-     * 내부적으로 기본 필터 {@link NotConnected}가 항상 포함됩니다.
+     * 내부적으로 기본 필터 {@link SendFilterPolicy.NotConnected}가 항상 포함됩니다.
      *
      * @param sendFilterPolicies 조합할 필터들
      * @return 병합된 단일 필터

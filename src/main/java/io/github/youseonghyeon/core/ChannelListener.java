@@ -12,15 +12,15 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.Iterator;
 import java.util.Set;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.*;
 
 /**
  * 사용자가 입장/퇴장 하고 socketChannel 에 메시지를 받는 것들을 처리함
@@ -33,7 +33,7 @@ public class ChannelListener implements Runnable {
     private final ServerSocketChannel serverSocketChannel;
     private final MessageReceiver messageReceiver;
     private final ChatEventPublisher chatEventPublisher;
-    private ExecutorService channelReadExecutor;
+    private ThreadPoolExecutor channelReadExecutor;
     private ExecutorService eventLoopExecutor;
 
     private ReadFailureHandler readFailureHandler;
@@ -43,7 +43,7 @@ public class ChannelListener implements Runnable {
     public ChannelListener(int port, MessageReceiver messageReceiver, ChatEventPublisher chatEventPublisher) {
         try {
             this.selector = Selector.open();
-            this.serverSocketChannel = openServer(selector, port);
+            this.serverSocketChannel = openPort(selector, port);
         } catch (IOException e) {
             throw new InitChatServiceException(e);
         }
@@ -51,7 +51,7 @@ public class ChannelListener implements Runnable {
         this.chatEventPublisher = chatEventPublisher;
     }
 
-    private static ServerSocketChannel openServer(Selector selector, int p) throws IOException {
+    private static ServerSocketChannel openPort(Selector selector, int p) throws IOException {
         ServerSocketChannel ssc = ServerSocketChannel.open();
         InetSocketAddress local = new InetSocketAddress(p);
         ssc.bind(local);
@@ -63,9 +63,9 @@ public class ChannelListener implements Runnable {
     @Override
     public void run() {
         this.eventLoopExecutor = Executors.newSingleThreadExecutor();
-
-        // TODO Thread Pool Executor 로 동적 크기 조정 적용 및 Backpressure 처리 필요
-        this.channelReadExecutor = Executors.newFixedThreadPool(50);
+        // TODO 우선 백프레셔를 기본값으로 설정하며, 추후 engine config 에서 불러올 수 있도록 변경 필요
+        this.channelReadExecutor = new ThreadPoolExecutor(10, 50, 5, TimeUnit.MINUTES, new LinkedBlockingQueue<>(1000), new ThreadPoolExecutor.CallerRunsPolicy());
+        this.channelReadExecutor.prestartAllCoreThreads();
 
         eventLoopExecutor.submit(this::runLoop);
 
@@ -76,37 +76,51 @@ public class ChannelListener implements Runnable {
                 }, "EventLoopShutdownHook"));
     }
 
-    public ByteBuffer buffer = ByteBuffer.allocate(1024);
-
     private void runLoop() {
+        Deque<Long> errorDeque = new ArrayDeque<>();
         while (!shutdown) {
             try {
                 selector.select();
-                Set<SelectionKey> selectedKeys = selector.selectedKeys();
-                Iterator<SelectionKey> iter = selectedKeys.iterator();
-
-                while (iter.hasNext()) {
-                    SelectionKey key = iter.next();
-                    iter.remove();
-                    if (key.isAcceptable()) {
-                        handleAccept(serverSocketChannel, selector);
-                    }
-                    if (key.isReadable()) {
-                        key.interestOps(key.interestOps() & ~SelectionKey.OP_READ);
-                        SocketChannel client = (SocketChannel) key.channel();
-                        channelReadExecutor.submit(() -> {
-                            try {
-                                handleRead(client);
-                            } finally {
-                                key.interestOps(key.interestOps() | SelectionKey.OP_READ);
-                                selector.wakeup();
-                            }
-                        });
-                    }
-                }
+                processSelectedKeys();
             } catch (IOException e) {
-                log.error("Failed to select channels", e);
-                // TODO 루프 내 리소스 초기화 기능 추가
+                handleSelectError(e, errorDeque);
+            }
+        }
+    }
+
+    private void processSelectedKeys() throws IOException {
+        Set<SelectionKey> selectedKeys = selector.selectedKeys();
+        Iterator<SelectionKey> iter = selectedKeys.iterator();
+
+        while (iter.hasNext()) {
+            SelectionKey key = iter.next();
+            iter.remove();
+            if (key.isAcceptable()) {
+                handleAccept(serverSocketChannel, selector);
+            }
+            if (key.isReadable()) {
+                key.interestOps(key.interestOps() & ~SelectionKey.OP_READ);
+                SocketChannel client = (SocketChannel) key.channel();
+                channelReadExecutor.submit(() -> {
+                    try {
+                        handleRead(client);
+                    } finally {
+                        key.interestOps(key.interestOps() | SelectionKey.OP_READ);
+                        selector.wakeup();
+                    }
+                });
+            }
+        }
+    }
+
+    private void handleSelectError(IOException e, Deque<Long> errorDeque) {
+        log.error("Failed to select channels", e);
+        errorDeque.add(System.currentTimeMillis());
+        if (errorDeque.size() > 10) {
+            if (isThresholdExceeded(errorDeque.getFirst(), System.currentTimeMillis(), TimeUnit.SECONDS.toMillis(1))) {
+                // TODO publish Engine Recovery Event
+            } else {
+                errorDeque.clear();
             }
         }
     }
@@ -127,6 +141,10 @@ public class ChannelListener implements Runnable {
         SocketChannel client = serverSocketChannel.accept();
         client.configureBlocking(false);
         client.register(selector, SelectionKey.OP_READ);
+    }
+
+    private boolean isThresholdExceeded(Long errorStartTime, Long currentMillis, Long threshold) {
+        return errorStartTime >= currentMillis - threshold;
     }
 
 }
