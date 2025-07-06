@@ -13,7 +13,7 @@ public class NoOpBroadcaster implements MessageSubscriber {
 
     @Override
     public void subscribe(Message Message) {
-
+        // 단일 노드 환경에서는 메시지를 브로드캐스트하지 않습니다.
     }
 
     @Override

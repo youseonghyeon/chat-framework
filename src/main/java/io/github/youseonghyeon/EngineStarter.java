@@ -6,7 +6,7 @@ public class EngineStarter {
 
     public static void main(String[] args) {
         ChatEngine chatEngine = new ChatEngine();
-        chatEngine.setConfig(config -> config.port(9999));
+        chatEngine.applyConfiguration(config -> config.port(9999));
         chatEngine.start();
 
         Runtime.getRuntime().addShutdownHook(new Thread(chatEngine::stop));

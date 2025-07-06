@@ -40,9 +40,9 @@ abstract class AbstractEngineLifecycle {
             if (started) {
                 throw new IllegalStateException("Engine is already started.");
             }
-            initDefaultConfigIfAbsent();
-            initResource();
-            startEngine();
+            initializeDefaultConfiguration();
+            initializeEngineComponents();
+            launch();
             started = true;
         }, lock, LOCK_SECONDS);
     }
@@ -68,13 +68,13 @@ abstract class AbstractEngineLifecycle {
      * 자원 초기화를 위한 메서드입니다.
      * 예: 세션 저장소, 브로드캐스트 핸들러 등
      */
-    protected abstract void initResource();
+    protected abstract void initializeEngineComponents();
 
     /**
      * Config 가 설정되지 않았을 경우 기본 구현을 설정하기 위한 메서드입니다.
      */
-    protected abstract void initDefaultConfigIfAbsent();
+    protected abstract void initializeDefaultConfiguration();
 
-    protected abstract void startEngine();
+    protected abstract void launch();
 
 }

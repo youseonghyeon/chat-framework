@@ -1,22 +1,22 @@
 package io.github.youseonghyeon.broadcast.kafka;
 
-import io.github.youseonghyeon.core.event.ChatEventPublisher;
 import io.github.youseonghyeon.core.dto.Message;
+import io.github.youseonghyeon.core.event.ChatEventPublisher;
 import io.github.youseonghyeon.core.event.MessageSubscriber;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
-import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.time.Duration;
 import java.util.Collections;
 import java.util.Properties;
 import java.util.UUID;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.BiConsumer;
 
 public class KafkaBroadcaster<E extends Message> extends KafkaLifecycleManager implements MessageSubscriber {
 
@@ -30,10 +30,46 @@ public class KafkaBroadcaster<E extends Message> extends KafkaLifecycleManager i
     private KafkaProducer<String, E> producer;
     private final AtomicBoolean consumerRunning = new AtomicBoolean(false);
     private ChatEventPublisher chatEventPublisher;
+    private ThreadPoolExecutor consumerThreadExecutor;
 
 
     // 브로드케스팅 중복을 제어하기 위한 노드 ID
     private static final String nodeId = UUID.randomUUID().toString();
+
+    @Override
+    public void subscribe(Message Message) {
+//        while (true) {
+//            ConsumerRecords<String, E> poll = consumer.poll(Duration.ofMillis(100));
+//            for (ConsumerRecord<String, E> record : poll) {
+//
+//            }
+//        }
+    }
+
+    @Override
+    public void init() {
+        this.consumerThreadExecutor = new ThreadPoolExecutor(10, 50, 5, TimeUnit.MINUTES, new LinkedBlockingQueue<>(1000), new ThreadPoolExecutor.CallerRunsPolicy());
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            log.info("Shutting down KafkaBroadcaster...");
+            if (consumer != null) {
+                consumer.close();
+            }
+            if (producer != null) {
+                producer.close();
+            }
+            consumerRunning.set(false);
+            consumerThreadExecutor.shutdown();
+            try {
+                if (!consumerThreadExecutor.awaitTermination(60, TimeUnit.SECONDS)) {
+                    log.warn("Consumer thread executor did not terminate in the specified time.");
+                }
+            } catch (InterruptedException e) {
+                log.error("Shutdown interrupted: {}", e.getMessage());
+                Thread.currentThread().interrupt();
+            }
+            log.info("KafkaBroadcaster shutdown complete.");
+        }));
+    }
 
     public KafkaBroadcaster(String consumerGroupIdPrefix, Properties properties, ChatEventPublisher chatEventPublisher) {
         super(DEFAULT_CALLBACK_RUNNER_THREAD_COUNT);
@@ -78,31 +114,4 @@ public class KafkaBroadcaster<E extends Message> extends KafkaLifecycleManager i
         });
     }
 
-
-    public void onMessage(BiConsumer<String, E> callback) {
-        boolean result = consumerRunning.compareAndExchange(false, true);
-        if (result) {
-            log.warn("Consumer is already running. Skipping onMessage registration.");
-            return;
-        }
-        submit(() -> {
-            while (!Thread.currentThread().isInterrupted()) {
-                ConsumerRecords<String, E> records = consumer.poll(Duration.ofMillis(100));
-                records.forEach(record -> submit(() -> callback.accept(record.key(), record.value())));
-            }
-        });
-    }
-
-    @Override
-    public void subscribe(Message Message) {
-
-    }
-
-    @Override
-    public void init() {
-        // TODO 메시지 consumer 쓰레드 생성
-
-//        chatEventPublisher.publish(message);
-
-    }
 }

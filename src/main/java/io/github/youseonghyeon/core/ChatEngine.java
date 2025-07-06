@@ -20,12 +20,20 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 
 /**
- * ChatEngine은 채팅 애플리케이션의 생명주기, 설정, 관리 기능을 담당하는 클래스입니다.
- * 이 클래스는 AbstractEngineLifecycle을 상속하며, 자원 초기화, 기본 설정 구성,
- * 엔진 구동을 위한 메서드들을 제공합니다.
- * <p>
- * 이 엔진은 채팅방 생성 및 관리, 채팅 관련 이벤트 처리,
- * 구독자에게 메시지를 발행하는 등의 기능을 지원합니다.
+ * ChatEngine manages the lifecycle and configuration of a chat application engine.
+ * It is responsible for initializing core resources, registering event subscribers,
+ * and starting the message processing loop.
+ *
+ * <p>Typical usage:
+ * <pre>{@code
+ * ChatEngine engine = new ChatEngine();
+ * engine.applyConfiguration(cfg -> cfg.port(9000));
+ * engine.run(); // inherited from AbstractEngineLifecycle
+ * }</pre>
+ *
+ * @see ChatEngineConfig
+ * @see ChatRoom
+ * @see ChatEventPublisher
  */
 public class ChatEngine extends AbstractEngineLifecycle {
 
@@ -36,13 +44,25 @@ public class ChatEngine extends AbstractEngineLifecycle {
     private ChannelListener channelListener;
     private final Map<String, ChatRoom> chatRoomMap = new ConcurrentHashMap<>();
 
-    public void setConfig(@NotNull Function<ChatEngineConfig, ChatEngineConfig> configChain) {
+    /**
+     * Applies user-defined configuration using the given functional chain.
+     * This should be called before {@link #launch()} to ensure the engine has all required settings.
+     *
+     * @param configChain a function to configure and return the final {@link ChatEngineConfig}
+     * @throws NullPointerException if the provided configChain is null
+     */
+    public void applyConfiguration(@NotNull Function<ChatEngineConfig, ChatEngineConfig> configChain) {
         Objects.requireNonNull(configChain, "Config chain must not be null");
         this.config = configChain.apply(new ChatEngineConfig());
     }
 
+    /**
+     * Initializes default configuration values if user-defined values are not provided.
+     * This method ensures all required components such as message sender/receiver and policies
+     * are set before engine execution begins.
+     */
     @Override
-    protected void initDefaultConfigIfAbsent() {
+    protected void initializeDefaultConfiguration() {
         if (config.getSendFilterPolicy() == null)
             config.sendFilterPolicy(new SendFilterPolicy.BroadcastExceptSelf());
 
@@ -57,8 +77,14 @@ public class ChatEngine extends AbstractEngineLifecycle {
         messageSubscriberMap.computeIfAbsent(EventType.USER_SEND, type -> new SendMessage(chatRoomMap));
     }
 
+    /**
+     * Initializes core engine components such as event publisher and channel listener.
+     * Registers all message subscribers declared in the configuration.
+     *
+     * <p>Must be called after {@link #initializeDefaultConfiguration()}.
+     */
     @Override
-    protected void initResource() {
+    protected void initializeEngineComponents() {
         this.chatEventPublisher = new ChatEventPublisher();
         this.channelListener = new ChannelListener(config.getPort(), config.getMessageReceiver(), chatEventPublisher);
 
@@ -70,8 +96,12 @@ public class ChatEngine extends AbstractEngineLifecycle {
 
     }
 
+    /**
+     * Starts the chat engine by running the main channel listener.
+     * This begins accepting socket connections and dispatching messages.
+     */
     @Override
-    protected void startEngine() {
+    protected void launch() {
         channelListener.run();
     }
 

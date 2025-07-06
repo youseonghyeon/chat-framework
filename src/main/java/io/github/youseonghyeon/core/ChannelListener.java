@@ -23,7 +23,19 @@ import java.util.Set;
 import java.util.concurrent.*;
 
 /**
- * 사용자가 입장/퇴장 하고 socketChannel 에 메시지를 받는 것들을 처리함
+ * {@code ChannelListener} is the core event loop responsible for handling client socket
+ * connections in a non-blocking I/O (NIO) fashion using Java's {@link Selector} API.
+ *
+ * <p>It manages new client connections, reads inbound messages via a {@link MessageReceiver},
+ * and dispatches them to the appropriate handlers using {@link ChatEventPublisher}.</p>
+ *
+ * <p>This class launches an event loop thread and a thread pool for concurrent channel reads,
+ * and gracefully shuts down all resources via a JVM shutdown hook.</p>
+ *
+ * @see Selector
+ * @see SocketChannel
+ * @see MessageReceiver
+ * @see ChatEventPublisher
  */
 public class ChannelListener implements Runnable {
 
@@ -40,6 +52,14 @@ public class ChannelListener implements Runnable {
 
     private volatile boolean shutdown = false;
 
+    /**
+     * Constructs a {@code ChannelListener} with a specific port, message reader, and event dispatcher.
+     *
+     * @param port the port number to bind the server socket
+     * @param messageReceiver the component responsible for reading raw socket messages
+     * @param chatEventPublisher the dispatcher that routes parsed messages to subscribers
+     * @throws InitChatServiceException if the server socket fails to initialize
+     */
     public ChannelListener(int port, MessageReceiver messageReceiver, ChatEventPublisher chatEventPublisher) {
         try {
             this.selector = Selector.open();
@@ -51,15 +71,27 @@ public class ChannelListener implements Runnable {
         this.chatEventPublisher = chatEventPublisher;
     }
 
-    private static ServerSocketChannel openPort(Selector selector, int p) throws IOException {
+    /**
+     * Opens and registers a non-blocking {@link ServerSocketChannel} with the given {@link Selector}.
+     *
+     * @param selector the selector used for managing I/O events
+     * @param port the port to bind the server socket
+     * @return a configured {@code ServerSocketChannel}
+     * @throws IOException if the socket cannot be opened or bound
+     */
+    private static ServerSocketChannel openPort(Selector selector, int port) throws IOException {
         ServerSocketChannel ssc = ServerSocketChannel.open();
-        InetSocketAddress local = new InetSocketAddress(p);
+        InetSocketAddress local = new InetSocketAddress(port);
         ssc.bind(local);
         ssc.configureBlocking(false);
         ssc.register(selector, SelectionKey.OP_ACCEPT);
         return ssc;
     }
 
+    /**
+     * Launches the event loop and channel read executor threads.
+     * Registers a shutdown hook to cleanly terminate all threads.
+     */
     @Override
     public void run() {
         this.eventLoopExecutor = Executors.newSingleThreadExecutor();
@@ -76,6 +108,10 @@ public class ChannelListener implements Runnable {
                 }, "EventLoopShutdownHook"));
     }
 
+    /**
+     * Main event loop that waits for selector events and delegates to appropriate handlers.
+     * Also performs threshold-based error tracking for selector failures.
+     */
     private void runLoop() {
         Deque<Long> errorDeque = new ArrayDeque<>();
         while (!shutdown) {
@@ -88,6 +124,12 @@ public class ChannelListener implements Runnable {
         }
     }
 
+    /**
+     * Processes all ready {@link SelectionKey} instances registered to the selector.
+     * Accepts new client connections or reads from active client channels.
+     *
+     * @throws IOException if channel read/write fails
+     */
     private void processSelectedKeys() throws IOException {
         Set<SelectionKey> selectedKeys = selector.selectedKeys();
         Iterator<SelectionKey> iter = selectedKeys.iterator();
@@ -113,6 +155,12 @@ public class ChannelListener implements Runnable {
         }
     }
 
+    /**
+     * Handles exceptions during selector select operations and throttles excessive failures.
+     *
+     * @param e the caught I/O exception
+     * @param errorDeque a deque tracking recent error timestamps
+     */
     private void handleSelectError(IOException e, Deque<Long> errorDeque) {
         log.error("Failed to select channels", e);
         errorDeque.add(System.currentTimeMillis());
@@ -125,6 +173,12 @@ public class ChannelListener implements Runnable {
         }
     }
 
+    /**
+     * Reads a message from a client and publishes it to the internal event bus.
+     * Delegates exception handling to a custom {@link ReadFailureHandler} if configured.
+     *
+     * @param clientChannel the source client channel
+     */
     private void handleRead(SocketChannel clientChannel) {
         try {
             Message message = messageReceiver.read(clientChannel);
@@ -137,12 +191,27 @@ public class ChannelListener implements Runnable {
         }
     }
 
+    /**
+     * Accepts a new incoming client connection and registers it with the selector for read events.
+     *
+     * @param serverSocketChannel the bound server socket
+     * @param selector the selector to register the client with
+     * @throws IOException if client channel configuration or registration fails
+     */
     private void handleAccept(ServerSocketChannel serverSocketChannel, Selector selector) throws IOException {
         SocketChannel client = serverSocketChannel.accept();
         client.configureBlocking(false);
         client.register(selector, SelectionKey.OP_READ);
     }
 
+    /**
+     * Checks whether error threshold has been exceeded for publishing engine recovery events.
+     *
+     * @param errorStartTime timestamp of the first error
+     * @param currentMillis current time
+     * @param threshold duration threshold in milliseconds
+     * @return {@code true} if the error duration is within the given threshold
+     */
     private boolean isThresholdExceeded(Long errorStartTime, Long currentMillis, Long threshold) {
         return errorStartTime >= currentMillis - threshold;
     }
