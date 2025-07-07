@@ -2,6 +2,7 @@ package io.github.youseonghyeon.broadcast.kafka;
 
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.Objects;
 import java.util.Properties;
@@ -13,7 +14,6 @@ abstract class KafkaLifecycleManager {
     private ExecutorService executorService;
     private KafkaConsumer<?, ?> consumerRef;
     private KafkaProducer<?, ?> producerRef;
-
     private final Runnable closeResource = () -> {
         if (producerRef != null) {
             producerRef.close();
@@ -39,17 +39,26 @@ abstract class KafkaLifecycleManager {
     };
 
 
-    protected KafkaLifecycleManager(Integer callbackRunnerThreadCount) {
-        this.executorService = initThreadPool(callbackRunnerThreadCount);
+    protected KafkaLifecycleManager() {
+        this.executorService = initThreadPool();
         Runtime.getRuntime().addShutdownHook(new Thread(closeResource, "KafkaLifecycleManager-ShutdownHook"));
     }
 
-    private ExecutorService initThreadPool(Integer callbackRunnerThreadCount) {
-        return Executors.newFixedThreadPool(callbackRunnerThreadCount, r -> {
-            Thread t = new Thread(r);
-            t.setName("kafka-callback-runner-" + t.getId());
-            return t;
-        });
+    private ExecutorService initThreadPool() {
+        return new ThreadPoolExecutor(10,
+                50,
+                5, TimeUnit.MINUTES,
+                new LinkedBlockingQueue<>(1000),
+                kafkaThreadFactory(),
+                new ThreadPoolExecutor.CallerRunsPolicy());
+    }
+
+    private static @NotNull ThreadFactory kafkaThreadFactory() {
+        return runner -> {
+            Thread thread = new Thread(runner);
+            thread.setName("kafka-runner-" + thread.getId());
+            return thread;
+        };
     }
 
     protected Future<?> submit(Runnable task) {

@@ -1,4 +1,4 @@
-package io.github.youseonghyeon.core.event.action;
+package io.github.youseonghyeon.core.event.command;
 
 import io.github.youseonghyeon.core.ChatRoom;
 import io.github.youseonghyeon.core.dto.Message;
@@ -7,24 +7,23 @@ import io.github.youseonghyeon.core.event.MessageSubscriber;
 
 import java.util.Map;
 
-public class SendMessage implements MessageSubscriber {
+public class LeaveRoom implements MessageSubscriber {
 
-    public static final EventType type = EventType.USER_SEND;
+    public static final EventType type = EventType.LEAVE;
 
     private final Map<String, ChatRoom> chatRoomMap;
 
-    public SendMessage(Map<String, ChatRoom> chatRoomMap) {
+    public LeaveRoom(Map<String, ChatRoom> chatRoomMap) {
         this.chatRoomMap = chatRoomMap;
     }
 
     @Override
     public void subscribe(Message message) {
         ChatRoom chatRoom = chatRoomMap.get(message.roomId());
-        chatRoom.broadcast(message, message.socketChannel());
-    }
+        if (chatRoom == null) {
+            throw new IllegalStateException("Chat room not found: " + message.roomId());
+        }
 
-    @Override
-    public void init() {
-
+        chatRoom.leave(message.socketChannel());
     }
 }

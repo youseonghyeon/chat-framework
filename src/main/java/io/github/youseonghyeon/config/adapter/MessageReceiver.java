@@ -1,7 +1,7 @@
 package io.github.youseonghyeon.config.adapter;
 
 import io.github.youseonghyeon.core.dto.Message;
-import io.github.youseonghyeon.exception.ChannelReadException;
+import io.github.youseonghyeon.core.exception.ChannelReadException;
 
 import java.nio.channels.SocketChannel;
 

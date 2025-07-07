@@ -1,4 +1,4 @@
-package io.github.youseonghyeon.exception;
+package io.github.youseonghyeon.core.exception;
 
 public class ClientConnectionException extends RuntimeException {
 

@@ -4,10 +4,10 @@ import io.github.youseonghyeon.config.SendFilterPolicy;
 import io.github.youseonghyeon.config.adapter.MessageSender;
 import io.github.youseonghyeon.core.dto.Message;
 import io.github.youseonghyeon.core.dto.SendResult;
-import io.github.youseonghyeon.exception.InvalidChatRoomConfigException;
-import io.github.youseonghyeon.exception.InvalidMessageException;
-import io.github.youseonghyeon.exception.UserNotConnectedException;
-import io.github.youseonghyeon.exception.UserSessionInvalidException;
+import io.github.youseonghyeon.core.exception.InvalidChatRoomConfigException;
+import io.github.youseonghyeon.core.exception.InvalidMessageException;
+import io.github.youseonghyeon.core.exception.UserNotConnectedException;
+import io.github.youseonghyeon.core.exception.UserSessionInvalidException;
 import io.github.youseonghyeon.model.User;
 import io.github.youseonghyeon.utils.LockCoordinator;
 import io.github.youseonghyeon.utils.StringUtils;
@@ -49,7 +49,7 @@ public class ChatRoom {
     /**
      * Constructs a new chat room with a given identifier and message sender.
      *
-     * @param roomId the unique identifier of the chat room
+     * @param roomId        the unique identifier of the chat room
      * @param messageSender the message delivery mechanism to be used
      * @throws InvalidChatRoomConfigException if the roomId is null/blank or messageSender is null
      */
@@ -65,16 +65,21 @@ public class ChatRoom {
      * Adds a user to the chat room's participant list.
      *
      * @param user the user to join
+     * @return true if the user was successfully added, false if they were already a participant
      * @throws UserSessionInvalidException if the user or their socket channel is null
-     * @throws UserNotConnectedException if the socket channel is not currently connected
+     * @throws UserNotConnectedException   if the socket channel is not currently connected
      */
-    public void join(User user) {
+    public boolean join(User user) {
         if (user == null || user.getSocketChannel() == null)
             throw new UserSessionInvalidException("User or socket channel is null");
         if (!user.getSocketChannel().isConnected())
             throw new UserNotConnectedException("User socket channel is not connected");
+        if (participants.contains(user)) {
+            log.warn("User {} is already in room {}", user.getSocketChannel(), roomId);
+            return false;
+        }
 
-        LockCoordinator.withLock(() -> participants.add(user), roomLock, 5);
+        return LockCoordinator.withLock(() -> participants.add(user), roomLock, 5);
     }
 
     /**
@@ -84,16 +89,12 @@ public class ChatRoom {
      * @param user the user to remove
      * @throws UserSessionInvalidException if user or socket channel is null
      */
-    public void leave(User user) {
+    public boolean leave(User user) {
         if (user == null || user.getSocketChannel() == null)
             throw new UserSessionInvalidException("User or socket channel is null");
 
-        // 한명의 사용자가 2개의 채팅방을 사용하고 있는 경우가 있으므로, socketChannel은 close 하지 않도록 함
-        Boolean leaved = LockCoordinator.withLock(() -> participants.remove(user), roomLock, 5);
-
-        if (leaved) {
-            log.info("User {} left room {}", user.getSocketChannel(), roomId);
-        }
+        // socket channel must be connected to leave
+        return LockCoordinator.withLock(() -> participants.remove(user), roomLock, 5);
     }
 
     /**
@@ -103,21 +104,22 @@ public class ChatRoom {
      * @param socketChannel the channel identifying the user session
      * @throws UserSessionInvalidException if the channel is null
      */
-    public void leave(SocketChannel socketChannel) {
+    public boolean leave(SocketChannel socketChannel) {
         if (socketChannel == null)
             throw new UserSessionInvalidException("Socket channel is null");
 
-        participants.stream()
+        return participants.stream()
                 .filter(user -> user.getSocketChannel().equals(socketChannel))
                 .findFirst()
-                .ifPresent(this::leave);
+                .map(this::leave)
+                .orElse(false);
     }
 
     /**
      * Broadcasts a message to all participants except the optional sender.
      *
      * @param message the message to send
-     * @param sender the sender's socket channel, may be null
+     * @param sender  the sender's socket channel, may be null
      * @throws InvalidMessageException if the message is null
      */
     public void broadcast(Message message, @Nullable SocketChannel sender) {
@@ -130,12 +132,14 @@ public class ChatRoom {
         participants.stream()
                 .filter(filterPolicy)
                 .forEach(user -> sendMessage(user.getSocketChannel(), message));
+
+        // TODO Result 반환하도록 변경 필요
     }
 
     /**
      * Sends a message to a specific socket channel.
      *
-     * @param client the recipient's socket channel
+     * @param client  the recipient's socket channel
      * @param message the message to be delivered
      * @return the result of the send operation (currently not implemented)
      */
@@ -153,7 +157,7 @@ public class ChatRoom {
      * Removes all participants whose socket connections are no longer open.
      * Intended to be invoked periodically by an external reaper thread.
      */
-    protected void sweepParticipants() {
+    public void sweepParticipants() {
         participants.removeIf(user -> {
             try {
                 return !user.getSocketChannel().isOpen();
@@ -164,21 +168,15 @@ public class ChatRoom {
         });
     }
 
-    /**
-     * Returns the number of active participants in the chat room.
-     *
-     * @return current participant count
-     */
-    public long getParticipantCount() {
-        return participants.size();
+    public boolean isEmpty() {
+        return participants.isEmpty();
     }
 
-    /**
-     * Returns the unique identifier for this chat room.
-     *
-     * @return the room ID
-     */
     public String getRoomId() {
         return roomId;
+    }
+
+    public Set<User> getParticipants() {
+        return participants;
     }
 }

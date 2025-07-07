@@ -1,5 +1,6 @@
 package io.github.youseonghyeon.core;
 
+import io.github.youseonghyeon.broadcast.no.NoOpsBroadcaster;
 import io.github.youseonghyeon.config.ChatEngineConfig;
 import io.github.youseonghyeon.config.SendFilterPolicy;
 import io.github.youseonghyeon.config.adapter.sample.DefaultMessageReceiver;
@@ -7,9 +8,9 @@ import io.github.youseonghyeon.config.adapter.sample.DefaultMessageSender;
 import io.github.youseonghyeon.core.event.ChatEventPublisher;
 import io.github.youseonghyeon.core.event.EventType;
 import io.github.youseonghyeon.core.event.MessageSubscriber;
-import io.github.youseonghyeon.core.event.action.EnterRoom;
-import io.github.youseonghyeon.core.event.action.LeaveRoom;
-import io.github.youseonghyeon.core.event.action.SendMessage;
+import io.github.youseonghyeon.core.event.command.EnterRoom;
+import io.github.youseonghyeon.core.event.command.LeaveRoom;
+import io.github.youseonghyeon.core.event.command.SendMessage;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -75,6 +76,10 @@ public class ChatEngine extends AbstractEngineLifecycle {
         messageSubscriberMap.computeIfAbsent(EventType.ENTER, type -> new EnterRoom(chatRoomMap, config.getMessageSender()));
         messageSubscriberMap.computeIfAbsent(EventType.LEAVE, type -> new LeaveRoom(chatRoomMap));
         messageSubscriberMap.computeIfAbsent(EventType.USER_SEND, type -> new SendMessage(chatRoomMap));
+
+        if (config.getMessageBroadCaster() == null) {
+            config.messageBroadCaster(new NoOpsBroadcaster());
+        }
     }
 
     /**
@@ -88,10 +93,9 @@ public class ChatEngine extends AbstractEngineLifecycle {
         this.chatEventPublisher = new ChatEventPublisher();
         this.channelListener = new ChannelListener(config.getPort(), config.getMessageReceiver(), chatEventPublisher);
 
-        config.getMessageSubscriberMap().forEach((eventType, messageSubscriber) -> {
-            messageSubscriber.init();
-            chatEventPublisher.registerSubscriber(eventType, messageSubscriber);
-        });
+        // TODO 이쯤에서 kafka initialize 를 처리해야 함
+        config.getMessageSubscriberMap()
+                .forEach((eventType, messageSubscriber) -> chatEventPublisher.registerSubscriber(eventType, messageSubscriber));
         log.info("ChatEngineConfig: {}", config);
 
     }
@@ -103,6 +107,10 @@ public class ChatEngine extends AbstractEngineLifecycle {
     @Override
     protected void launch() {
         channelListener.run();
+    }
+
+    public ChatEventPublisher getEventPublisher() {
+        return chatEventPublisher;
     }
 
 

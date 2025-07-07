@@ -1,5 +1,6 @@
 package io.github.youseonghyeon.config;
 
+import io.github.youseonghyeon.broadcast.MessageBroadCaster;
 import io.github.youseonghyeon.config.adapter.MessageReceiver;
 import io.github.youseonghyeon.config.adapter.MessageSender;
 import io.github.youseonghyeon.core.event.EventType;
@@ -32,11 +33,12 @@ public class ChatEngineConfig {
 
     private static final Logger log = LoggerFactory.getLogger(ChatEngineConfig.class);
 
-    private SendFilterPolicy sendFilterPolicy;
     private int port;
+    private SendFilterPolicy sendFilterPolicy;
     private final Map<EventType, MessageSubscriber> messageSubscriberMap = new HashMap<>();
     private MessageSender messageSender;
     private MessageReceiver messageReceiver;
+    private MessageBroadCaster messageBroadCaster;
 
     /**
      * 여러 개의 송신 필터를 조합하여 하나의 정책으로 병합합니다.
@@ -84,6 +86,11 @@ public class ChatEngineConfig {
         return this;
     }
 
+    public ChatEngineConfig messageBroadCaster(MessageBroadCaster messageBroadCaster) {
+        this.messageBroadCaster = messageBroadCaster;
+        return this;
+    }
+
     // -- Getters
 
     public SendFilterPolicy getSendFilterPolicy() {
@@ -106,12 +113,17 @@ public class ChatEngineConfig {
         return messageReceiver;
     }
 
+    public MessageBroadCaster getMessageBroadCaster() {
+        return messageBroadCaster;
+    }
+
     @Override
     public String toString() {
-        return "sendFilterPolicy=" + sendFilterPolicy +
-               "\n\tport=" + port +
-               "\n\tEventSubscriberList=" + messageSubscriberMap.keySet() +
-               "\n\tmessageSender=" + messageSender.getClass().getName() +
-               "\n\tmessageReceiver=" + messageReceiver.getClass().getName();
+        return "\n\tsendFilterPolicy= " + sendFilterPolicy +
+               "\n\tport= " + port +
+               "\n\tEventSubscriberList= " + messageSubscriberMap.keySet() +
+               "\n\tmessageSender= " + (messageSender != null ? messageSender.getClass().getName() : "null") +
+               "\n\tmessageReceiver= " + (messageReceiver != null ? messageReceiver.getClass().getName() : "null") +
+               "\n\tmessageBroadCaster= " + (messageBroadCaster != null ? messageBroadCaster.getClass().getName() : "null");
     }
 }

@@ -1,6 +1,25 @@
 package io.github.youseonghyeon.core.maintenance;
 
+import io.github.youseonghyeon.core.ChatRoom;
+
+import java.util.Map;
+
+/// 스케줄링 스레드로 작동 필요
 public class ExpirationReaper {
 
-    // TODO ChatRoom 이 비어있거나 연결이 끊겨있는 사용자가 있으면 해당 사용자를 cleanup 하는 로직을 구현해야 함
+    private final Map<String, ChatRoom> chatRoomMap;
+
+    public ExpirationReaper(Map<String, ChatRoom> chatRoomMap) {
+        this.chatRoomMap = chatRoomMap;
+    }
+
+    private void cleanup() {
+        for (String s : chatRoomMap.keySet()) {
+            ChatRoom chatRoom = chatRoomMap.get(s);
+            chatRoom.sweepParticipants();
+            if (chatRoom.isEmpty()) {
+                chatRoomMap.remove(s);
+            }
+        }
+    }
 }

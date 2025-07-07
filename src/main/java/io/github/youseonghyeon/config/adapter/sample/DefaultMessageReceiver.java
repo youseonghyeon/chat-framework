@@ -3,7 +3,7 @@ package io.github.youseonghyeon.config.adapter.sample;
 import io.github.youseonghyeon.config.adapter.MessageReceiver;
 import io.github.youseonghyeon.core.dto.Message;
 import io.github.youseonghyeon.core.event.EventType;
-import io.github.youseonghyeon.exception.ChannelWriteException;
+import io.github.youseonghyeon.core.exception.ChannelWriteException;
 
 import java.io.EOFException;
 import java.io.IOException;
