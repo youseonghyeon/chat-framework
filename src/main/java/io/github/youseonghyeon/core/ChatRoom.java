@@ -17,6 +17,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.channels.SocketChannel;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -79,7 +80,7 @@ public class ChatRoom {
             return false;
         }
 
-        return LockCoordinator.withLock(() -> participants.add(user), roomLock, 5);
+        return LockCoordinator.withLock(() -> participants.add(user), roomLock, Duration.ofSeconds(5));
     }
 
     /**
@@ -94,7 +95,7 @@ public class ChatRoom {
             throw new UserSessionInvalidException("User or socket channel is null");
 
         // socket channel must be connected to leave
-        return LockCoordinator.withLock(() -> participants.remove(user), roomLock, 5);
+        return LockCoordinator.withLock(() -> participants.remove(user), roomLock, Duration.ofSeconds(5));
     }
 
     /**

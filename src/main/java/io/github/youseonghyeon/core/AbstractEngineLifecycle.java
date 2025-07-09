@@ -4,6 +4,7 @@ import io.github.youseonghyeon.utils.LockCoordinator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Duration;
 import java.util.concurrent.locks.ReentrantLock;
 
 /**
@@ -44,7 +45,7 @@ abstract class AbstractEngineLifecycle {
             initializeEngineComponents();
             launch();
             started = true;
-        }, lock, LOCK_SECONDS);
+        }, lock, Duration.ofSeconds(LOCK_SECONDS));
     }
 
     /**
@@ -60,7 +61,7 @@ abstract class AbstractEngineLifecycle {
                 throw new IllegalStateException("Engine is not started yet.");
             }
             started = false;
-        }, lock, LOCK_SECONDS);
+        }, lock, Duration.ofSeconds(LOCK_SECONDS));
     }
 
 
